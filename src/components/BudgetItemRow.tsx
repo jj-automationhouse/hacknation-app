@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, X, MessageSquare } from 'lucide-react';
+import { Check, X, MessageSquare, Edit2 } from 'lucide-react';
 import { BudgetItem } from '../mockData';
 import { StatusBadge } from './StatusBadge';
 import { ClarificationBadge } from './ClarificationBadge';
@@ -13,6 +13,7 @@ interface BudgetItemRowProps {
   isNew?: boolean;
   onSave: (data: Omit<BudgetItem, 'id' | 'unitId' | 'status' | 'clarificationStatus'>) => void;
   onCancel: () => void;
+  onEdit?: (item: BudgetItem) => void;
   onDiscussion?: (item: BudgetItem) => void;
   formatCurrency: (amount: number) => string;
 }
@@ -23,6 +24,7 @@ export function BudgetItemRow({
   isNew = false,
   onSave,
   onCancel,
+  onEdit,
   onDiscussion,
   formatCurrency,
 }: BudgetItemRowProps) {
@@ -107,6 +109,8 @@ export function BudgetItemRow({
   };
 
   if (!isEditing && item) {
+    const canEdit = item.status !== 'approved';
+
     return (
       <tr className="hover:bg-gray-50">
         <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
@@ -138,13 +142,24 @@ export function BudgetItemRow({
           />
         </td>
         <td className="px-6 py-4 text-center">
-          <button
-            onClick={() => onDiscussion && onDiscussion(item)}
-            className="text-blue-600 hover:text-blue-800 transition-colors"
-            title="Otwórz dyskusję"
-          >
-            <MessageSquare className="w-5 h-5 inline" />
-          </button>
+          <div className="flex items-center justify-center space-x-2">
+            {canEdit && onEdit && (
+              <button
+                onClick={() => onEdit(item)}
+                className="text-gray-600 hover:text-gray-800 transition-colors"
+                title="Edytuj"
+              >
+                <Edit2 className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={() => onDiscussion && onDiscussion(item)}
+              className="text-blue-600 hover:text-blue-800 transition-colors"
+              title="Otwórz dyskusję"
+            >
+              <MessageSquare className="w-5 h-5" />
+            </button>
+          </div>
         </td>
         <td className="px-6 py-4">
           {item.comment && (

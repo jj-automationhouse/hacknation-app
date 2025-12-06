@@ -10,10 +10,11 @@ import { ClarificationBadge } from './ClarificationBadge';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 
 export function BudgetEntryView() {
-  const { currentUser, units, budgetItems, addBudgetItem, submitBudget, getBudgetVersions } = useApp();
+  const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions } = useApp();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [selectedItemForDiscussion, setSelectedItemForDiscussion] = useState<BudgetItem | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [selectedVersionForComparison, setSelectedVersionForComparison] = useState<BudgetVersion | null>(null);
 
   if (!currentUser) return null;
@@ -43,6 +44,29 @@ export function BudgetEntryView() {
 
   const handleCancelNew = () => {
     setIsAddingNew(false);
+  };
+
+  const handleEditItem = (item: BudgetItem) => {
+    setEditingItemId(item.id);
+  };
+
+  const handleSaveEdit = (data: Omit<BudgetItem, 'id' | 'unitId' | 'status' | 'clarificationStatus'>) => {
+    if (editingItemId) {
+      updateBudgetItem(editingItemId, {
+        budgetSection: data.budgetSection,
+        budgetDivision: data.budgetDivision,
+        budgetChapter: data.budgetChapter,
+        category: data.category,
+        description: data.description,
+        amount: data.amount,
+        year: data.year,
+      });
+      setEditingItemId(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
   };
 
   const handleSubmitForApproval = () => {
@@ -264,9 +288,10 @@ export function BudgetEntryView() {
                   <BudgetItemRow
                     key={item.id}
                     item={item}
-                    isEditing={false}
-                    onSave={() => {}}
-                    onCancel={() => {}}
+                    isEditing={editingItemId === item.id}
+                    onSave={handleSaveEdit}
+                    onCancel={handleCancelEdit}
+                    onEdit={handleEditItem}
                     onDiscussion={setSelectedItemForDiscussion}
                     formatCurrency={formatCurrency}
                   />

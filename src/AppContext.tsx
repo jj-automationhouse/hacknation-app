@@ -257,7 +257,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (updates.submittedTo !== undefined) dbUpdates.submitted_to = updates.submittedTo;
     if (updates.clarificationStatus) dbUpdates.clarification_status = updates.clarificationStatus;
     if (updates.hasUnreadComments !== undefined) dbUpdates.has_unread_comments = updates.hasUnreadComments;
-    if (updates.amount) dbUpdates.amount = updates.amount;
+    if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+    if (updates.budgetSection) dbUpdates.budget_section = updates.budgetSection;
+    if (updates.budgetDivision) dbUpdates.budget_division = updates.budgetDivision;
+    if (updates.budgetChapter) dbUpdates.budget_chapter = updates.budgetChapter;
+    if (updates.category) dbUpdates.category = updates.category;
+    if (updates.description) dbUpdates.description = updates.description;
+    if (updates.year) dbUpdates.year = updates.year;
 
     const { error } = await supabase
       .from('budget_items')
