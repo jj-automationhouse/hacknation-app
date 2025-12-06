@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { Plus, Send, MessageSquare, AlertCircle, CheckCircle, HelpCircle } from 'lucide-react';
-import { useApp } from '../AppContext';
+import { useApp, BudgetVersion } from '../AppContext';
 import { Breadcrumb } from './Breadcrumb';
 import { DiscussionThread } from './DiscussionThread';
 import { BudgetItemRow } from './BudgetItemRow';
+import { VersionHistory } from './VersionHistory';
+import { VersionComparison } from './VersionComparison';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 
 export function BudgetEntryView() {
-  const { currentUser, units, budgetItems, addBudgetItem, submitBudget } = useApp();
+  const { currentUser, units, budgetItems, addBudgetItem, submitBudget, getBudgetVersions } = useApp();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [selectedItemForDiscussion, setSelectedItemForDiscussion] = useState<BudgetItem | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [selectedVersionForComparison, setSelectedVersionForComparison] = useState<BudgetVersion | null>(null);
 
   if (!currentUser) return null;
 
@@ -273,6 +276,14 @@ export function BudgetEntryView() {
         </div>
       </div>
 
+      {currentUser && (
+        <VersionHistory
+          unitId={currentUser.unitId}
+          getBudgetVersions={getBudgetVersions}
+          onCompare={setSelectedVersionForComparison}
+        />
+      )}
+
       {selectedItemForDiscussion && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -294,6 +305,15 @@ export function BudgetEntryView() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedVersionForComparison && (
+        <VersionComparison
+          currentItems={userBudgetItems}
+          selectedVersion={selectedVersionForComparison}
+          onClose={() => setSelectedVersionForComparison(null)}
+          formatCurrency={formatCurrency}
+        />
       )}
     </div>
   );

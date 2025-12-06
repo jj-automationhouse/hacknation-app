@@ -10,6 +10,16 @@ import {
 } from './mockData';
 import { supabase } from './lib/supabase';
 
+export interface BudgetVersion {
+  id: string;
+  budgetId: string;
+  createdAt: Date;
+  createdBy: string;
+  createdByName?: string;
+  action: 'submitted' | 'approved' | 'returned';
+  itemsSnapshot: BudgetItem[];
+}
+
 interface AppContextType {
   currentUser: User | null;
   setCurrentUser: (user: User) => void;
@@ -18,6 +28,7 @@ interface AppContextType {
   budgetItems: BudgetItem[];
   submissions: BudgetSubmission[];
   comments: BudgetComment[];
+  budgetVersions: BudgetVersion[];
   loading: boolean;
   addBudgetItem: (item: Omit<BudgetItem, 'id'>) => Promise<void>;
   updateBudgetItem: (id: string, updates: Partial<BudgetItem>) => Promise<void>;
@@ -33,6 +44,7 @@ interface AppContextType {
   addComment: (itemId: string, content: string, parentCommentId?: string) => Promise<void>;
   markCommentsAsRead: (itemId: string) => Promise<void>;
   resolveClarification: (itemId: string) => Promise<void>;
+  getBudgetVersions: (unitId: string) => Promise<BudgetVersion[]>;
   refreshData: () => Promise<void>;
 }
 
@@ -45,6 +57,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
   const [submissions, setSubmissions] = useState<BudgetSubmission[]>([]);
   const [comments, setComments] = useState<BudgetComment[]>([]);
+  const [budgetVersions, setBudgetVersions] = useState<BudgetVersion[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refreshData = async () => {
@@ -144,6 +157,75 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [users, currentUser]);
 
+  const createBudgetVersion = async (
+    unitId: string,
+    action: 'submitted' | 'approved' | 'returned'
+  ) => {
+    if (!currentUser) return;
+
+    const unitBudgetItems = budgetItems.filter(item => item.unitId === unitId);
+
+    const itemsSnapshot = unitBudgetItems.map(item => ({
+      id: item.id,
+      unitId: item.unitId,
+      budgetSection: item.budgetSection,
+      budgetDivision: item.budgetDivision,
+      budgetChapter: item.budgetChapter,
+      category: item.category,
+      description: item.description,
+      year: item.year,
+      amount: item.amount,
+      status: item.status,
+      comment: item.comment,
+      submittedTo: item.submittedTo,
+      clarificationStatus: item.clarificationStatus,
+      hasUnreadComments: item.hasUnreadComments,
+    }));
+
+    const { error } = await supabase.from('budget_versions').insert({
+      budget_id: unitId,
+      created_by: currentUser.id,
+      action,
+      items_snapshot: itemsSnapshot,
+    });
+
+    if (error) {
+      console.error('Error creating budget version:', error);
+    }
+  };
+
+  const getBudgetVersions = async (unitId: string): Promise<BudgetVersion[]> => {
+    const { data, error } = await supabase
+      .from('budget_versions')
+      .select('*')
+      .eq('budget_id', unitId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching budget versions:', error);
+      return [];
+    }
+
+    if (!data) return [];
+
+    const versionsWithUserNames = await Promise.all(
+      data.map(async (v) => {
+        const user = users.find(u => u.id === v.created_by);
+        return {
+          id: v.id,
+          budgetId: v.budget_id,
+          createdAt: new Date(v.created_at),
+          createdBy: v.created_by,
+          createdByName: user?.name,
+          action: v.action as 'submitted' | 'approved' | 'returned',
+          itemsSnapshot: (v.items_snapshot as any[]) || [],
+        };
+      })
+    );
+
+    return versionsWithUserNames;
+  };
+
   const addBudgetItem = async (item: Omit<BudgetItem, 'id'>) => {
     if (!currentUser) return;
 
@@ -199,6 +281,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
 
     if (itemsToSubmit.length === 0) return;
+
+    await createBudgetVersion(unitId, 'submitted');
 
     for (const item of itemsToSubmit) {
       await supabase
@@ -303,6 +387,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const approveBudgetGroup = async (unitId: string, year: number, comment?: string) => {
+    await createBudgetVersion(unitId, 'approved');
+
     const { error } = await supabase
       .from('budget_items')
       .update({ status: 'approved', comment: comment || null })
@@ -335,6 +421,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const returnBudgetGroupToChild = async (unitId: string, year: number, comment: string) => {
+    await createBudgetVersion(unitId, 'returned');
+
     const { error } = await supabase
       .from('budget_items')
       .update({ status: 'draft', comment, submitted_to: null })
@@ -424,6 +512,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         budgetItems,
         submissions,
         comments,
+        budgetVersions,
         loading,
         addBudgetItem,
         updateBudgetItem,
@@ -439,6 +528,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addComment,
         markCommentsAsRead,
         resolveClarification,
+        getBudgetVersions,
         refreshData,
       }}
     >
