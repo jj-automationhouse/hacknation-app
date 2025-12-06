@@ -105,7 +105,29 @@ export function ApprovalView() {
 
   const getGroupKey = (group: BudgetGroup) => `${group.unitId}-${group.year}`;
 
+  const hasUnresolvedDiscussions = (group: BudgetGroup) => {
+    return group.items.some(
+      item => item.clarificationStatus === 'requested' || item.clarificationStatus === 'responded'
+    );
+  };
+
+  const getUnresolvedItems = (group: BudgetGroup) => {
+    return group.items.filter(
+      item => item.clarificationStatus === 'requested' || item.clarificationStatus === 'responded'
+    );
+  };
+
   const handleApprove = (group: BudgetGroup) => {
+    const unresolvedItems = getUnresolvedItems(group);
+
+    if (unresolvedItems.length > 0) {
+      const itemsList = unresolvedItems.map(item => `- ${item.category}: ${item.description}`).join('\n');
+      alert(
+        `Nie można zatwierdzić budżetu.\n\nNastępujące pozycje mają nierozwiązane dyskusje:\n\n${itemsList}\n\nNależy najpierw rozwiązać wszystkie dyskusje.`
+      );
+      return;
+    }
+
     setCommentModalGroup(group);
     setActionType('approve');
     setComment('');
@@ -233,8 +255,11 @@ export function ApprovalView() {
               const groupKey = getGroupKey(group);
               const isExpanded = expandedGroups.has(groupKey);
 
+              const hasUnresolved = hasUnresolvedDiscussions(group);
+              const unresolvedCount = getUnresolvedItems(group).length;
+
               return (
-                <div key={groupKey} className="hover:bg-gray-50">
+                <div key={groupKey} className={`hover:bg-gray-50 ${hasUnresolved ? 'bg-amber-50' : ''}`}>
                   <div className="p-6 flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3">
@@ -248,19 +273,37 @@ export function ApprovalView() {
                             <ChevronRight className="w-5 h-5 text-gray-600" />
                           )}
                         </button>
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{group.unitName}</h3>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <h3 className="text-lg font-semibold text-gray-900">{group.unitName}</h3>
+                            {hasUnresolved && (
+                              <span className="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full flex items-center space-x-1">
+                                <AlertCircle className="w-3 h-3" />
+                                <span>{unresolvedCount} nierozwiązanych dyskusji</span>
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-gray-600 mt-1">
                             Rok {group.year} • {group.itemCount} pozycji • {formatCurrency(group.totalAmount)}
                           </p>
+                          {hasUnresolved && (
+                            <p className="text-xs text-amber-700 mt-2 font-medium">
+                              Należy rozwiązać wszystkie dyskusje przed zatwierdzeniem
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2 ml-4">
                       <button
                         onClick={() => handleApprove(group)}
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
-                        title="Zatwierdź grupę"
+                        disabled={hasUnresolved}
+                        className={`p-2 rounded-md transition-colors ${
+                          hasUnresolved
+                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                            : 'text-emerald-600 hover:bg-emerald-50'
+                        }`}
+                        title={hasUnresolved ? 'Rozwiąż dyskusje aby zatwierdzić' : 'Zatwierdź grupę'}
                       >
                         <Check className="w-5 h-5" />
                       </button>
