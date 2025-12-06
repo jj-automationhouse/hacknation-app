@@ -14,6 +14,18 @@ function AppContent() {
   const [currentView, setCurrentView] = useState<ViewType>('budget');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const canAccessApproval = currentUser?.role === 'approver' || currentUser?.role === 'admin';
+  const canAccessAdmin = currentUser?.role === 'admin';
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (currentView === 'approval' && !canAccessApproval) {
+      setCurrentView('budget');
+    } else if (currentView === 'admin' && !canAccessAdmin) {
+      setCurrentView('budget');
+    }
+  }, [currentUser, canAccessApproval, canAccessAdmin, currentView]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -34,17 +46,6 @@ function AppContent() {
       </div>
     );
   }
-
-  const canAccessApproval = currentUser.role === 'approver' || currentUser.role === 'admin';
-  const canAccessAdmin = currentUser.role === 'admin';
-
-  useEffect(() => {
-    if (currentView === 'approval' && !canAccessApproval) {
-      setCurrentView('budget');
-    } else if (currentView === 'admin' && !canAccessAdmin) {
-      setCurrentView('budget');
-    }
-  }, [currentUser, canAccessApproval, canAccessAdmin, currentView]);
 
   return (
     <div className="min-h-screen bg-gray-50">
