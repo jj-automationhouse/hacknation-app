@@ -79,6 +79,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setBudgetItems(itemsRes.data.map(i => ({
           id: i.id,
           unitId: i.unit_id,
+          budgetSection: i.budget_section,
           category: i.category,
           description: i.description,
           year: i.year,
@@ -146,6 +147,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const { error } = await supabase.from('budget_items').insert({
       unit_id: item.unitId,
+      budget_section: item.budgetSection,
       category: item.category,
       description: item.description,
       year: item.year,

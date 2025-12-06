@@ -157,6 +157,9 @@ export function AdminView() {
                   Jednostka
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Część budżetowa
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Kategoria
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -176,6 +179,7 @@ export function AdminView() {
                 return (
                   <tr key={item.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{unit?.name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">{item.budgetSection}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{item.category}</td>
                     <td className="px-6 py-4 text-sm text-gray-600 max-w-md">{item.description}</td>
                     <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">

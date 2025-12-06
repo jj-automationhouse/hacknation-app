@@ -32,6 +32,7 @@ export interface BudgetComment {
 export interface BudgetItem {
   id: string;
   unitId: string;
+  budgetSection: string;
   category: string;
   description: string;
   year: number;
@@ -82,6 +83,7 @@ export const initialBudgetItems: BudgetItem[] = [
   {
     id: "b-1",
     unitId: "inst-1",
+    budgetSection: "30 – Oświata i wychowanie",
     category: "Wyposażenie",
     description: "Komputery dla pracowni informatycznej",
     year: 2024,
@@ -92,6 +94,7 @@ export const initialBudgetItems: BudgetItem[] = [
   {
     id: "b-2",
     unitId: "inst-1",
+    budgetSection: "30 – Oświata i wychowanie",
     category: "Remonty",
     description: "Remont sali gimnastycznej",
     year: 2024,
@@ -102,6 +105,7 @@ export const initialBudgetItems: BudgetItem[] = [
   {
     id: "b-3",
     unitId: "inst-2",
+    budgetSection: "46 – Zdrowie",
     category: "Sprzęt medyczny",
     description: "Zakup aparatu USG",
     year: 2024,
@@ -112,6 +116,7 @@ export const initialBudgetItems: BudgetItem[] = [
   {
     id: "b-4",
     unitId: "inst-3",
+    budgetSection: "27 – Informatyzacja",
     category: "Oprogramowanie",
     description: "Licencje na system obiegu dokumentów",
     year: 2024,
@@ -122,6 +127,7 @@ export const initialBudgetItems: BudgetItem[] = [
   {
     id: "b-5",
     unitId: "inst-4",
+    budgetSection: "30 – Oświata i wychowanie",
     category: "Wyposażenie",
     description: "Meble do klas",
     year: 2024,

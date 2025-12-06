@@ -343,6 +343,7 @@ export function ApprovalView() {
                                       hasUnreadComments={item.hasUnreadComments}
                                     />
                                   </div>
+                                  <p className="text-xs text-gray-500 mb-1">{item.budgetSection}</p>
                                   <p className="text-sm text-gray-600">{item.description}</p>
                                   <div className="flex items-center space-x-2 mt-2">
                                     <button
@@ -435,6 +436,7 @@ export function ApprovalView() {
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                   <p className="font-medium text-gray-900">{item.category}</p>
+                                  <p className="text-xs text-gray-500 mt-1">{item.budgetSection}</p>
                                   <p className="text-sm text-gray-600 mt-1">{item.description}</p>
                                   {item.comment && (
                                     <p className="text-sm text-blue-600 mt-2 flex items-start space-x-2">

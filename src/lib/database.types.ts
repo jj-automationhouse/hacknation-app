@@ -71,6 +71,7 @@ export interface Database {
         Row: {
           id: string;
           unit_id: string;
+          budget_section: string;
           category: string;
           description: string;
           year: number;
@@ -86,6 +87,7 @@ export interface Database {
         Insert: {
           id?: string;
           unit_id: string;
+          budget_section: string;
           category: string;
           description: string;
           year: number;
@@ -101,6 +103,7 @@ export interface Database {
         Update: {
           id?: string;
           unit_id?: string;
+          budget_section?: string;
           category?: string;
           description?: string;
           year?: number;
