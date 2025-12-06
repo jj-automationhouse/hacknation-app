@@ -38,11 +38,11 @@ export function LimitsView() {
   };
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && units.length > 0) {
       loadReceivedLimits();
       loadChildUnits();
     }
-  }, [currentUser]);
+  }, [currentUser, units, budgetItems]);
 
   const loadReceivedLimits = async () => {
     if (!currentUser) return;
