@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, GitCompare, CheckCircle, XCircle, CornerUpLeft, Edit3 } from 'lucide-react';
+import { Clock, GitCompare, CheckCircle, XCircle, CornerUpLeft, Edit3, DollarSign } from 'lucide-react';
 import { BudgetVersion } from '../AppContext';
 
 interface VersionHistoryProps {
@@ -44,6 +44,8 @@ export function VersionHistory({ unitId, getBudgetVersions, onCompare }: Version
         return 'Zwrócono do poprawy';
       case 'edited':
         return 'Edytowano';
+      case 'limits_assigned':
+        return 'Przyznano limity';
       default:
         return action;
     }
@@ -59,6 +61,8 @@ export function VersionHistory({ unitId, getBudgetVersions, onCompare }: Version
         return <CornerUpLeft className="w-5 h-5 text-amber-600" />;
       case 'edited':
         return <Edit3 className="w-5 h-5 text-purple-600" />;
+      case 'limits_assigned':
+        return <DollarSign className="w-5 h-5 text-emerald-600" />;
       default:
         return <Clock className="w-5 h-5 text-gray-600" />;
     }
@@ -74,6 +78,8 @@ export function VersionHistory({ unitId, getBudgetVersions, onCompare }: Version
         return 'bg-amber-100 text-amber-800';
       case 'edited':
         return 'bg-purple-100 text-purple-800';
+      case 'limits_assigned':
+        return 'bg-emerald-100 text-emerald-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }

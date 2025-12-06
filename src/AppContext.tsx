@@ -16,7 +16,7 @@ export interface BudgetVersion {
   createdAt: Date;
   createdBy: string;
   createdByName?: string;
-  action: 'submitted' | 'approved' | 'returned' | 'edited';
+  action: 'submitted' | 'approved' | 'returned' | 'edited' | 'limits_assigned';
   itemsSnapshot: BudgetItem[];
 }
 
@@ -45,7 +45,9 @@ interface AppContextType {
   markCommentsAsRead: (itemId: string) => Promise<void>;
   resolveClarification: (itemId: string) => Promise<void>;
   getBudgetVersions: (unitId: string) => Promise<BudgetVersion[]>;
-  createBudgetVersion: (unitId: string, action: 'submitted' | 'approved' | 'returned' | 'edited') => Promise<void>;
+  createBudgetVersion: (unitId: string, action: 'submitted' | 'approved' | 'returned' | 'edited' | 'limits_assigned') => Promise<void>;
+  assignLimits: (limits: { itemId: string; limitAmount: number }[]) => Promise<void>;
+  approveLimitsAndPropagate: (unitId: string) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -105,6 +107,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           submittedTo: i.submitted_to || undefined,
           clarificationStatus: i.clarification_status,
           hasUnreadComments: i.has_unread_comments || false,
+          limitAmount: i.limit_amount ? Number(i.limit_amount) : undefined,
+          limitStatus: i.limit_status || 'not_assigned',
         })));
       }
 
@@ -241,6 +245,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       amount: item.amount,
       status: item.status,
       clarification_status: item.clarificationStatus,
+      limit_status: item.limitStatus || 'not_assigned',
     });
 
     if (error) {
@@ -265,6 +270,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (updates.category) dbUpdates.category = updates.category;
     if (updates.description) dbUpdates.description = updates.description;
     if (updates.year) dbUpdates.year = updates.year;
+    if (updates.limitAmount !== undefined) dbUpdates.limit_amount = updates.limitAmount;
+    if (updates.limitStatus) dbUpdates.limit_status = updates.limitStatus;
 
     const { error } = await supabase
       .from('budget_items')
@@ -509,6 +516,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const assignLimits = async (limits: { itemId: string; limitAmount: number }[]) => {
+    if (!currentUser) return;
+
+    const updates = limits.map(({ itemId, limitAmount }) => ({
+      id: itemId,
+      limit_amount: limitAmount,
+    }));
+
+    const { error } = await supabase
+      .from('budget_items')
+      .upsert(updates);
+
+    if (error) {
+      console.error('Error assigning limits:', error);
+      throw new Error('Nie udało się przypisać limitów');
+    }
+
+    await refreshData();
+  };
+
+  const approveLimitsAndPropagate = async (unitId: string) => {
+    if (!currentUser) return;
+
+    const unitItems = budgetItems.filter(item =>
+      item.status === 'approved' &&
+      (item.unitId === unitId || getAllDescendantUnits(unitId, units).some(u => u.id === item.unitId))
+    );
+
+    const hasUnassignedLimits = unitItems.some(item => !item.limitAmount);
+    if (hasUnassignedLimits) {
+      throw new Error('Wszystkie pozycje muszą mieć przypisane limity przed zatwierdzeniem');
+    }
+
+    const { error } = await supabase
+      .from('budget_items')
+      .update({ limit_status: 'limits_assigned' })
+      .in('id', unitItems.map(i => i.id));
+
+    if (error) {
+      console.error('Error updating limit status:', error);
+      throw new Error('Nie udało się zatwierdzić limitów');
+    }
+
+    await createBudgetVersion(unitId, 'limits_assigned');
+    await refreshData();
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -537,6 +591,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         resolveClarification,
         getBudgetVersions,
         createBudgetVersion,
+        assignLimits,
+        approveLimitsAndPropagate,
         refreshData,
       }}
     >

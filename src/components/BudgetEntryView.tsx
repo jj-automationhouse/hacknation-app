@@ -7,10 +7,11 @@ import { BudgetItemRow } from './BudgetItemRow';
 import { VersionHistory } from './VersionHistory';
 import { VersionComparison } from './VersionComparison';
 import { ClarificationBadge } from './ClarificationBadge';
+import { LimitAssignmentView } from './LimitAssignmentView';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 
 export function BudgetEntryView() {
-  const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions, createBudgetVersion } = useApp();
+  const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions, createBudgetVersion, assignLimits, approveLimitsAndPropagate } = useApp();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [selectedItemForDiscussion, setSelectedItemForDiscussion] = useState<BudgetItem | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -28,16 +29,25 @@ export function BudgetEntryView() {
   const hasDraftItems = userBudgetItems.some(item => item.status === 'draft');
   const hasParent = currentUnit?.parentId !== null;
 
+  const isTopLevel = !hasParent;
+  const allDescendantItems = budgetItems.filter(item =>
+    item.unitId === currentUser.unitId ||
+    descendantUnits.some(u => u.id === item.unitId)
+  );
+  const allApprovedItems = allDescendantItems.filter(item => item.status === 'approved');
+  const shouldShowLimitAssignment = isTopLevel && allApprovedItems.length > 0;
+
   const handleAddNew = () => {
     setIsAddingNew(true);
   };
 
-  const handleSaveNew = (data: Omit<BudgetItem, 'id' | 'unitId' | 'status' | 'clarificationStatus'>) => {
+  const handleSaveNew = (data: Omit<BudgetItem, 'id' | 'unitId' | 'status' | 'clarificationStatus' | 'limitStatus'>) => {
     addBudgetItem({
       unitId: currentUser.unitId,
       ...data,
       status: 'draft',
       clarificationStatus: 'none',
+      limitStatus: 'not_assigned',
     });
     setIsAddingNew(false);
   };
@@ -50,7 +60,7 @@ export function BudgetEntryView() {
     setEditingItemId(item.id);
   };
 
-  const handleSaveEdit = async (data: Omit<BudgetItem, 'id' | 'unitId' | 'status' | 'clarificationStatus'>) => {
+  const handleSaveEdit = async (data: Omit<BudgetItem, 'id' | 'unitId' | 'status' | 'clarificationStatus' | 'limitStatus' | 'limitAmount' | 'hasUnreadComments' | 'comment' | 'submittedTo'>) => {
     if (editingItemId) {
       const editedItem = budgetItems.find(item => item.id === editingItemId);
 
@@ -78,6 +88,20 @@ export function BudgetEntryView() {
   const handleSubmitForApproval = () => {
     if (confirm('Czy na pewno chcesz przesłać budżet do zatwierdzenia?')) {
       submitBudget(currentUser.unitId);
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
+    }
+  };
+
+  const handleAssignLimits = async (limits: { itemId: string; limitAmount: number }[]) => {
+    await assignLimits(limits);
+    setShowSuccessMessage(true);
+    setTimeout(() => setShowSuccessMessage(false), 3000);
+  };
+
+  const handleApproveLimits = async () => {
+    if (confirm('Czy na pewno chcesz zatwierdzić i przekazać limity do jednostek podległych?')) {
+      await approveLimitsAndPropagate(currentUser.unitId);
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 3000);
     }
@@ -204,6 +228,15 @@ export function BudgetEntryView() {
             </p>
           </div>
         </div>
+      )}
+
+      {shouldShowLimitAssignment && (
+        <LimitAssignmentView
+          budgetItems={allApprovedItems}
+          onAssignLimits={handleAssignLimits}
+          onApproveLimits={handleApproveLimits}
+          formatCurrency={formatCurrency}
+        />
       )}
 
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">

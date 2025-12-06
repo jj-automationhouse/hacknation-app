@@ -3,6 +3,7 @@ export type UserRole = "basic" | "approver" | "admin";
 export type BudgetStatus = "draft" | "pending" | "approved" | "rejected";
 export type SubmissionStatus = "draft" | "pending" | "approved" | "returned";
 export type ClarificationStatus = "none" | "requested" | "responded" | "resolved";
+export type LimitStatus = "not_assigned" | "limits_assigned" | "limits_distributed";
 
 export interface OrganizationalUnit {
   id: string;
@@ -44,6 +45,8 @@ export interface BudgetItem {
   submittedTo?: string;
   clarificationStatus: ClarificationStatus;
   hasUnreadComments?: boolean;
+  limitAmount?: number;
+  limitStatus: LimitStatus;
 }
 
 export interface BudgetSubmission {
@@ -94,6 +97,7 @@ export const initialBudgetItems: BudgetItem[] = [
     amount: 50000,
     status: "draft",
     clarificationStatus: "none",
+    limitStatus: "not_assigned",
   },
   {
     id: "b-2",
@@ -107,6 +111,7 @@ export const initialBudgetItems: BudgetItem[] = [
     amount: 120000,
     status: "draft",
     clarificationStatus: "none",
+    limitStatus: "not_assigned",
   },
   {
     id: "b-3",
@@ -120,6 +125,7 @@ export const initialBudgetItems: BudgetItem[] = [
     amount: 200000,
     status: "draft",
     clarificationStatus: "none",
+    limitStatus: "not_assigned",
   },
   {
     id: "b-4",
@@ -133,6 +139,7 @@ export const initialBudgetItems: BudgetItem[] = [
     amount: 30000,
     status: "draft",
     clarificationStatus: "none",
+    limitStatus: "not_assigned",
   },
   {
     id: "b-5",
@@ -146,6 +153,7 @@ export const initialBudgetItems: BudgetItem[] = [
     amount: 45000,
     status: "draft",
     clarificationStatus: "none",
+    limitStatus: "not_assigned",
   },
 ];
 
