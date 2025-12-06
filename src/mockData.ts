@@ -34,6 +34,7 @@ export interface BudgetItem {
   unitId: string;
   budgetSection: string;
   budgetDivision: string;
+  budgetChapter: string;
   category: string;
   description: string;
   year: number;
@@ -86,6 +87,7 @@ export const initialBudgetItems: BudgetItem[] = [
     unitId: "inst-1",
     budgetSection: "30 – Oświata i wychowanie",
     budgetDivision: "801 – Oświata i wychowanie",
+    budgetChapter: "80101 – Szkoły podstawowe",
     category: "Wyposażenie",
     description: "Komputery dla pracowni informatycznej",
     year: 2024,
@@ -98,6 +100,7 @@ export const initialBudgetItems: BudgetItem[] = [
     unitId: "inst-1",
     budgetSection: "30 – Oświata i wychowanie",
     budgetDivision: "801 – Oświata i wychowanie",
+    budgetChapter: "80101 – Szkoły podstawowe",
     category: "Remonty",
     description: "Remont sali gimnastycznej",
     year: 2024,
@@ -110,6 +113,7 @@ export const initialBudgetItems: BudgetItem[] = [
     unitId: "inst-2",
     budgetSection: "46 – Zdrowie",
     budgetDivision: "851 – Ochrona zdrowia",
+    budgetChapter: "85111 – Szpitale ogólne",
     category: "Sprzęt medyczny",
     description: "Zakup aparatu USG",
     year: 2024,
@@ -122,6 +126,7 @@ export const initialBudgetItems: BudgetItem[] = [
     unitId: "inst-3",
     budgetSection: "27 – Informatyzacja",
     budgetDivision: "720 – Informatyka",
+    budgetChapter: "72095 – Pozostała działalność",
     category: "Oprogramowanie",
     description: "Licencje na system obiegu dokumentów",
     year: 2024,
@@ -134,6 +139,7 @@ export const initialBudgetItems: BudgetItem[] = [
     unitId: "inst-4",
     budgetSection: "30 – Oświata i wychowanie",
     budgetDivision: "801 – Oświata i wychowanie",
+    budgetChapter: "80101 – Szkoły podstawowe",
     category: "Wyposażenie",
     description: "Meble do klas",
     year: 2024,

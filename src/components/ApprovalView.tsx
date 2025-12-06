@@ -345,6 +345,7 @@ export function ApprovalView() {
                                   </div>
                                   <p className="text-xs text-gray-500 mb-1">{item.budgetSection}</p>
                                   <p className="text-xs text-gray-500 mb-1">{item.budgetDivision}</p>
+                                  <p className="text-xs text-gray-500 mb-1">{item.budgetChapter}</p>
                                   <p className="text-sm text-gray-600">{item.description}</p>
                                   <div className="flex items-center space-x-2 mt-2">
                                     <button
@@ -439,6 +440,7 @@ export function ApprovalView() {
                                   <p className="font-medium text-gray-900">{item.category}</p>
                                   <p className="text-xs text-gray-500 mt-1">{item.budgetSection}</p>
                                   <p className="text-xs text-gray-500 mt-1">{item.budgetDivision}</p>
+                                  <p className="text-xs text-gray-500 mt-1">{item.budgetChapter}</p>
                                   <p className="text-sm text-gray-600 mt-1">{item.description}</p>
                                   {item.comment && (
                                     <p className="text-sm text-blue-600 mt-2 flex items-start space-x-2">

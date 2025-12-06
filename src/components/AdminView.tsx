@@ -163,6 +163,9 @@ export function AdminView() {
                   Dział
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Rozdział
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Kategoria
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -184,6 +187,7 @@ export function AdminView() {
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{unit?.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">{item.budgetSection}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">{item.budgetDivision}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">{item.budgetChapter}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{item.category}</td>
                     <td className="px-6 py-4 text-sm text-gray-600 max-w-md">{item.description}</td>
                     <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">

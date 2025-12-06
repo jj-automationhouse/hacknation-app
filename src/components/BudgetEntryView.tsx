@@ -7,6 +7,7 @@ import { ClarificationBadge } from './ClarificationBadge';
 import { DiscussionThread } from './DiscussionThread';
 import { BudgetSectionSelect } from './BudgetSectionSelect';
 import { BudgetDivisionSelect } from './BudgetDivisionSelect';
+import { BudgetChapterSelect } from './BudgetChapterSelect';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 
 export function BudgetEntryView() {
@@ -17,6 +18,7 @@ export function BudgetEntryView() {
   const [formData, setFormData] = useState({
     budgetSection: '',
     budgetDivision: '',
+    budgetChapter: '',
     category: '',
     description: '',
     amount: '',
@@ -40,6 +42,7 @@ export function BudgetEntryView() {
       unitId: currentUser.unitId,
       budgetSection: formData.budgetSection,
       budgetDivision: formData.budgetDivision,
+      budgetChapter: formData.budgetChapter,
       category: formData.category,
       description: formData.description,
       amount: parseFloat(formData.amount),
@@ -50,12 +53,21 @@ export function BudgetEntryView() {
     setFormData({
       budgetSection: '',
       budgetDivision: '',
+      budgetChapter: '',
       category: '',
       description: '',
       amount: '',
       year: new Date().getFullYear(),
     });
     setShowForm(false);
+  };
+
+  const handleDivisionChange = (value: string) => {
+    setFormData({
+      ...formData,
+      budgetDivision: value,
+      budgetChapter: '',
+    });
   };
 
   const handleSubmitForApproval = () => {
@@ -224,7 +236,13 @@ export function BudgetEntryView() {
               />
               <BudgetDivisionSelect
                 value={formData.budgetDivision}
-                onChange={(value) => setFormData({ ...formData, budgetDivision: value })}
+                onChange={handleDivisionChange}
+                required
+              />
+              <BudgetChapterSelect
+                value={formData.budgetChapter}
+                onChange={(value) => setFormData({ ...formData, budgetChapter: value })}
+                budgetDivision={formData.budgetDivision}
                 required
               />
               <div className="grid grid-cols-2 gap-4">
@@ -307,6 +325,9 @@ export function BudgetEntryView() {
                   Dział
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Rozdział
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Kategoria
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -335,7 +356,7 @@ export function BudgetEntryView() {
             <tbody className="divide-y divide-gray-200">
               {userBudgetItems.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
                     <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                     <p className="text-lg font-medium">Brak pozycji budżetowych</p>
                     <p className="text-sm mt-1">Kliknij "Dodaj pozycję" aby rozpocząć</p>
@@ -349,6 +370,9 @@ export function BudgetEntryView() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
                       {item.budgetDivision}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
+                      {item.budgetChapter}
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {item.category}

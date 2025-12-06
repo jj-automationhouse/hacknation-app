@@ -73,6 +73,7 @@ export interface Database {
           unit_id: string;
           budget_section: string;
           budget_division: string;
+          budget_chapter: string;
           category: string;
           description: string;
           year: number;
@@ -90,6 +91,7 @@ export interface Database {
           unit_id: string;
           budget_section: string;
           budget_division: string;
+          budget_chapter: string;
           category: string;
           description: string;
           year: number;
@@ -107,6 +109,7 @@ export interface Database {
           unit_id?: string;
           budget_section?: string;
           budget_division?: string;
+          budget_chapter?: string;
           category?: string;
           description?: string;
           year?: number;
