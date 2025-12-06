@@ -11,6 +11,7 @@ export type UserRole = "basic" | "approver" | "admin";
 export type BudgetStatus = "draft" | "pending" | "approved" | "rejected";
 export type SubmissionStatus = "draft" | "pending" | "approved" | "returned";
 export type ClarificationStatus = "none" | "requested" | "responded" | "resolved";
+export type UnitLimitStatus = "pending" | "assigned" | "distributed";
 
 export interface Database {
   public: {
@@ -198,6 +199,41 @@ export interface Database {
           created_at?: string;
         };
       };
+      unit_limits: {
+        Row: {
+          id: string;
+          unit_id: string;
+          assigned_by_unit_id: string;
+          total_requested: number;
+          limit_assigned: number | null;
+          status: UnitLimitStatus;
+          fiscal_year: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          unit_id: string;
+          assigned_by_unit_id: string;
+          total_requested: number;
+          limit_assigned?: number | null;
+          status?: UnitLimitStatus;
+          fiscal_year?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          unit_id?: string;
+          assigned_by_unit_id?: string;
+          total_requested?: number;
+          limit_assigned?: number | null;
+          status?: UnitLimitStatus;
+          fiscal_year?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {};
     Functions: {
@@ -220,6 +256,7 @@ export interface Database {
       budget_status: BudgetStatus;
       submission_status: SubmissionStatus;
       clarification_status: ClarificationStatus;
+      unit_limit_status: UnitLimitStatus;
     };
   };
 }

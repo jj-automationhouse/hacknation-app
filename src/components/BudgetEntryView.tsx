@@ -11,7 +11,7 @@ import { LimitAssignmentView } from './LimitAssignmentView';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 
 export function BudgetEntryView() {
-  const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions, createBudgetVersion, assignLimits, approveLimitsAndPropagate } = useApp();
+  const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions, createBudgetVersion } = useApp();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [selectedItemForDiscussion, setSelectedItemForDiscussion] = useState<BudgetItem | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -88,20 +88,6 @@ export function BudgetEntryView() {
   const handleSubmitForApproval = () => {
     if (confirm('Czy na pewno chcesz przesłać budżet do zatwierdzenia?')) {
       submitBudget(currentUser.unitId);
-      setShowSuccessMessage(true);
-      setTimeout(() => setShowSuccessMessage(false), 3000);
-    }
-  };
-
-  const handleAssignLimits = async (limits: { itemId: string; limitAmount: number }[]) => {
-    await assignLimits(limits);
-    setShowSuccessMessage(true);
-    setTimeout(() => setShowSuccessMessage(false), 3000);
-  };
-
-  const handleApproveLimits = async () => {
-    if (confirm('Czy na pewno chcesz zatwierdzić i przekazać limity do jednostek podległych?')) {
-      await approveLimitsAndPropagate(currentUser.unitId);
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 3000);
     }
@@ -232,9 +218,7 @@ export function BudgetEntryView() {
 
       {shouldShowLimitAssignment && (
         <LimitAssignmentView
-          budgetItems={allApprovedItems}
-          onAssignLimits={handleAssignLimits}
-          onApproveLimits={handleApproveLimits}
+          currentUnitId={currentUser.unitId}
           formatCurrency={formatCurrency}
         />
       )}

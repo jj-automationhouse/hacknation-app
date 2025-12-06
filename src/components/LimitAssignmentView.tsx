@@ -1,41 +1,126 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, AlertCircle } from 'lucide-react';
-import { BudgetItem } from '../mockData';
-import { LimitStatusBadge } from './LimitStatusBadge';
+import { CheckCircle, AlertCircle, Building2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+interface OrganizationalUnit {
+  id: string;
+  name: string;
+  type: string;
+  parent_id: string | null;
+}
+
+interface UnitLimitData {
+  unitId: string;
+  unitName: string;
+  totalRequested: number;
+  limitAssigned: number | null;
+  status: 'pending' | 'assigned' | 'distributed';
+  existingLimitId?: string;
+}
 
 interface LimitAssignmentViewProps {
-  budgetItems: BudgetItem[];
-  onAssignLimits: (limits: { itemId: string; limitAmount: number }[]) => Promise<void>;
-  onApproveLimits: () => Promise<void>;
+  currentUnitId: string;
   formatCurrency: (amount: number) => string;
 }
 
 export function LimitAssignmentView({
-  budgetItems,
-  onAssignLimits,
-  onApproveLimits,
+  currentUnitId,
   formatCurrency,
 }: LimitAssignmentViewProps) {
-  const [limits, setLimits] = useState<{ [itemId: string]: string }>({});
+  const [childUnits, setChildUnits] = useState<UnitLimitData[]>([]);
+  const [limits, setLimits] = useState<{ [unitId: string]: string }>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const initialLimits: { [itemId: string]: string } = {};
-    budgetItems.forEach(item => {
-      if (item.limitAmount) {
-        initialLimits[item.id] = item.limitAmount.toString();
-      } else {
-        initialLimits[item.id] = item.amount.toString();
-      }
-    });
-    setLimits(initialLimits);
-  }, [budgetItems]);
+    loadChildUnitsData();
+  }, [currentUnitId]);
 
-  const handleLimitChange = (itemId: string, value: string) => {
+  const loadChildUnitsData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data: units, error: unitsError } = await supabase
+        .from('organizational_units')
+        .select('id, name, type, parent_id')
+        .eq('parent_id', currentUnitId);
+
+      if (unitsError) throw unitsError;
+      if (!units || units.length === 0) {
+        setChildUnits([]);
+        setLoading(false);
+        return;
+      }
+
+      const unitIds = units.map(u => u.id);
+
+      const { data: budgetItems, error: budgetError } = await supabase
+        .from('budget_items')
+        .select('unit_id, amount')
+        .in('unit_id', unitIds)
+        .eq('status', 'approved');
+
+      if (budgetError) throw budgetError;
+
+      const totalsByUnit: { [unitId: string]: number } = {};
+      (budgetItems || []).forEach(item => {
+        totalsByUnit[item.unit_id] = (totalsByUnit[item.unit_id] || 0) + parseFloat(item.amount.toString());
+      });
+
+      const { data: existingLimits, error: limitsError } = await supabase
+        .from('unit_limits')
+        .select('*')
+        .in('unit_id', unitIds)
+        .eq('assigned_by_unit_id', currentUnitId)
+        .eq('fiscal_year', new Date().getFullYear());
+
+      if (limitsError) throw limitsError;
+
+      const limitsMap: { [unitId: string]: any } = {};
+      (existingLimits || []).forEach(limit => {
+        limitsMap[limit.unit_id] = limit;
+      });
+
+      const unitLimitData: UnitLimitData[] = units.map(unit => {
+        const totalRequested = totalsByUnit[unit.id] || 0;
+        const existingLimit = limitsMap[unit.id];
+
+        return {
+          unitId: unit.id,
+          unitName: unit.name,
+          totalRequested,
+          limitAssigned: existingLimit?.limit_assigned || null,
+          status: existingLimit?.status || 'pending',
+          existingLimitId: existingLimit?.id,
+        };
+      }).filter(u => u.totalRequested > 0);
+
+      setChildUnits(unitLimitData);
+
+      const initialLimits: { [unitId: string]: string } = {};
+      unitLimitData.forEach(unit => {
+        if (unit.limitAssigned !== null) {
+          initialLimits[unit.unitId] = unit.limitAssigned.toString();
+        } else {
+          initialLimits[unit.unitId] = unit.totalRequested.toString();
+        }
+      });
+      setLimits(initialLimits);
+
+    } catch (err) {
+      console.error('Error loading child units data:', err);
+      setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas ładowania danych');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLimitChange = (unitId: string, value: string) => {
     setLimits(prev => ({
       ...prev,
-      [itemId]: value,
+      [unitId]: value,
     }));
   };
 
@@ -44,13 +129,50 @@ export function LimitAssignmentView({
       setSaving(true);
       setError(null);
 
-      const limitsToSave = budgetItems.map(item => ({
-        itemId: item.id,
-        limitAmount: parseFloat(limits[item.id] || '0'),
-      }));
+      const limitsToSave = childUnits.map(unit => {
+        const limitAmount = parseFloat(limits[unit.unitId] || '0');
 
-      await onAssignLimits(limitsToSave);
+        return {
+          id: unit.existingLimitId,
+          unit_id: unit.unitId,
+          assigned_by_unit_id: currentUnitId,
+          total_requested: unit.totalRequested,
+          limit_assigned: limitAmount,
+          status: 'pending' as const,
+          fiscal_year: new Date().getFullYear(),
+        };
+      });
+
+      for (const limit of limitsToSave) {
+        if (limit.id) {
+          const { error: updateError } = await supabase
+            .from('unit_limits')
+            .update({
+              limit_assigned: limit.limit_assigned,
+              status: limit.status,
+            })
+            .eq('id', limit.id);
+
+          if (updateError) throw updateError;
+        } else {
+          const { error: insertError } = await supabase
+            .from('unit_limits')
+            .insert({
+              unit_id: limit.unit_id,
+              assigned_by_unit_id: limit.assigned_by_unit_id,
+              total_requested: limit.total_requested,
+              limit_assigned: limit.limit_assigned,
+              status: limit.status,
+              fiscal_year: limit.fiscal_year,
+            });
+
+          if (insertError) throw insertError;
+        }
+      }
+
+      await loadChildUnitsData();
     } catch (err) {
+      console.error('Error saving limits:', err);
       setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas zapisywania limitów');
     } finally {
       setSaving(false);
@@ -62,25 +184,85 @@ export function LimitAssignmentView({
       setSaving(true);
       setError(null);
 
-      const hasEmptyLimits = budgetItems.some(item => !limits[item.id] || parseFloat(limits[item.id]) <= 0);
+      const hasEmptyLimits = childUnits.some(unit => !limits[unit.unitId] || parseFloat(limits[unit.unitId]) <= 0);
       if (hasEmptyLimits) {
-        setError('Wszystkie pozycje muszą mieć przypisane limity większe od zera');
+        setError('Wszystkie jednostki muszą mieć przypisane limity większe od zera');
         setSaving(false);
         return;
       }
 
-      await handleSaveLimits();
-      await onApproveLimits();
+      const limitsToApprove = childUnits.map(unit => {
+        const limitAmount = parseFloat(limits[unit.unitId] || '0');
+
+        return {
+          id: unit.existingLimitId,
+          unit_id: unit.unitId,
+          assigned_by_unit_id: currentUnitId,
+          total_requested: unit.totalRequested,
+          limit_assigned: limitAmount,
+          status: 'assigned' as const,
+          fiscal_year: new Date().getFullYear(),
+        };
+      });
+
+      for (const limit of limitsToApprove) {
+        if (limit.id) {
+          const { error: updateError } = await supabase
+            .from('unit_limits')
+            .update({
+              limit_assigned: limit.limit_assigned,
+              status: limit.status,
+            })
+            .eq('id', limit.id);
+
+          if (updateError) throw updateError;
+        } else {
+          const { error: insertError } = await supabase
+            .from('unit_limits')
+            .insert({
+              unit_id: limit.unit_id,
+              assigned_by_unit_id: limit.assigned_by_unit_id,
+              total_requested: limit.total_requested,
+              limit_assigned: limit.limit_assigned,
+              status: limit.status,
+              fiscal_year: limit.fiscal_year,
+            });
+
+          if (insertError) throw insertError;
+        }
+      }
+
+      await loadChildUnitsData();
     } catch (err) {
+      console.error('Error approving limits:', err);
       setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas zatwierdzania limitów');
     } finally {
       setSaving(false);
     }
   };
 
-  const totalRequested = budgetItems.reduce((sum, item) => sum + item.amount, 0);
-  const totalLimits = budgetItems.reduce((sum, item) => {
-    const limit = parseFloat(limits[item.id] || '0');
+  if (loading) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <p className="text-gray-600">Ładowanie danych...</p>
+      </div>
+    );
+  }
+
+  if (childUnits.length === 0) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <div className="flex items-center space-x-3 text-gray-600">
+          <Building2 className="w-5 h-5" />
+          <p>Brak jednostek podległych z zatwierdzonymi wnioskami budżetowymi.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalRequested = childUnits.reduce((sum, unit) => sum + unit.totalRequested, 0);
+  const totalLimits = childUnits.reduce((sum, unit) => {
+    const limit = parseFloat(limits[unit.unitId] || '0');
     return sum + limit;
   }, 0);
   const difference = totalLimits - totalRequested;
@@ -92,7 +274,7 @@ export function LimitAssignmentView({
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Przydzielanie limitów budżetowych</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Jako jednostka najwyższego poziomu możesz przypisać limity do zatwierdzonych pozycji budżetowych
+              Przydziel limity budżetowe dla jednostek podległych. Każda jednostka otrzyma łączny limit do podziału.
             </p>
           </div>
           <div className="flex items-center space-x-3">
@@ -144,49 +326,48 @@ export function LimitAssignmentView({
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Jednostka
+                Jednostka organizacyjna
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Kategoria
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Opis
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Status limitu
+                Status
               </th>
               <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Kwota wnioskowana
+                Suma wnioskowana
               </th>
               <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Limit budżetu
+                Przydzielony limit
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {budgetItems.map(item => (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  {item.unitId}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  {item.category}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-700">
-                  {item.description}
+            {childUnits.map(unit => (
+              <tr key={unit.unitId} className="hover:bg-gray-50">
+                <td className="px-6 py-4">
+                  <div className="flex items-center space-x-2">
+                    <Building2 className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm font-medium text-gray-900">{unit.unitName}</span>
+                  </div>
                 </td>
                 <td className="px-6 py-4">
-                  <LimitStatusBadge status={item.limitStatus} />
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    unit.status === 'assigned'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : unit.status === 'distributed'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {unit.status === 'assigned' ? 'Przydzielony' : unit.status === 'distributed' ? 'Rozdysponowany' : 'Oczekujący'}
+                  </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-right text-gray-900 font-medium">
-                  {formatCurrency(item.amount)}
+                  {formatCurrency(unit.totalRequested)}
                 </td>
                 <td className="px-6 py-4 text-right">
                   <input
                     type="number"
-                    value={limits[item.id] || ''}
-                    onChange={(e) => handleLimitChange(item.id, e.target.value)}
-                    className="w-32 px-3 py-2 border border-gray-300 rounded-md text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={limits[unit.unitId] || ''}
+                    onChange={(e) => handleLimitChange(unit.unitId, e.target.value)}
+                    className="w-40 px-3 py-2 border border-gray-300 rounded-md text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="0.00"
                     step="0.01"
                     min="0"
