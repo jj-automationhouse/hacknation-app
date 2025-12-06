@@ -10,7 +10,7 @@ import { ClarificationBadge } from './ClarificationBadge';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 
 export function BudgetEntryView() {
-  const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions } = useApp();
+  const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions, createBudgetVersion } = useApp();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [selectedItemForDiscussion, setSelectedItemForDiscussion] = useState<BudgetItem | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -50,9 +50,15 @@ export function BudgetEntryView() {
     setEditingItemId(item.id);
   };
 
-  const handleSaveEdit = (data: Omit<BudgetItem, 'id' | 'unitId' | 'status' | 'clarificationStatus'>) => {
+  const handleSaveEdit = async (data: Omit<BudgetItem, 'id' | 'unitId' | 'status' | 'clarificationStatus'>) => {
     if (editingItemId) {
-      updateBudgetItem(editingItemId, {
+      const editedItem = budgetItems.find(item => item.id === editingItemId);
+
+      if (editedItem && editedItem.status !== 'draft') {
+        await createBudgetVersion(currentUser.unitId, 'edited');
+      }
+
+      await updateBudgetItem(editingItemId, {
         budgetSection: data.budgetSection,
         budgetDivision: data.budgetDivision,
         budgetChapter: data.budgetChapter,

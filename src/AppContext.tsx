@@ -16,7 +16,7 @@ export interface BudgetVersion {
   createdAt: Date;
   createdBy: string;
   createdByName?: string;
-  action: 'submitted' | 'approved' | 'returned';
+  action: 'submitted' | 'approved' | 'returned' | 'edited';
   itemsSnapshot: BudgetItem[];
 }
 
@@ -45,6 +45,7 @@ interface AppContextType {
   markCommentsAsRead: (itemId: string) => Promise<void>;
   resolveClarification: (itemId: string) => Promise<void>;
   getBudgetVersions: (unitId: string) => Promise<BudgetVersion[]>;
+  createBudgetVersion: (unitId: string, action: 'submitted' | 'approved' | 'returned' | 'edited') => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -159,7 +160,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const createBudgetVersion = async (
     unitId: string,
-    action: 'submitted' | 'approved' | 'returned'
+    action: 'submitted' | 'approved' | 'returned' | 'edited'
   ) => {
     if (!currentUser) return;
 
@@ -217,7 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           createdAt: new Date(v.created_at),
           createdBy: v.created_by,
           createdByName: user?.name,
-          action: v.action as 'submitted' | 'approved' | 'returned',
+          action: v.action as 'submitted' | 'approved' | 'returned' | 'edited',
           itemsSnapshot: (v.items_snapshot as any[]) || [],
         };
       })
@@ -535,6 +536,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         markCommentsAsRead,
         resolveClarification,
         getBudgetVersions,
+        createBudgetVersion,
         refreshData,
       }}
     >

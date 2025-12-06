@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, GitCompare, CheckCircle, XCircle, CornerUpLeft } from 'lucide-react';
+import { Clock, GitCompare, CheckCircle, XCircle, CornerUpLeft, Edit3 } from 'lucide-react';
 import { BudgetVersion } from '../AppContext';
 
 interface VersionHistoryProps {
@@ -41,6 +41,8 @@ export function VersionHistory({ unitId, getBudgetVersions, onCompare }: Version
         return 'Zatwierdzono';
       case 'returned':
         return 'Zwrócono do poprawy';
+      case 'edited':
+        return 'Edytowano';
       default:
         return action;
     }
@@ -54,6 +56,8 @@ export function VersionHistory({ unitId, getBudgetVersions, onCompare }: Version
         return <CheckCircle className="w-5 h-5 text-green-600" />;
       case 'returned':
         return <CornerUpLeft className="w-5 h-5 text-amber-600" />;
+      case 'edited':
+        return <Edit3 className="w-5 h-5 text-purple-600" />;
       default:
         return <Clock className="w-5 h-5 text-gray-600" />;
     }
@@ -67,6 +71,8 @@ export function VersionHistory({ unitId, getBudgetVersions, onCompare }: Version
         return 'bg-green-100 text-green-800';
       case 'returned':
         return 'bg-amber-100 text-amber-800';
+      case 'edited':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
