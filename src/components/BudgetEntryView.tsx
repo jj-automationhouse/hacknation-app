@@ -38,6 +38,20 @@ export function BudgetEntryView() {
   );
   const allApprovedItems = allDescendantItems.filter(item => item.status === 'approved');
 
+  const submittedToCurrentUnit = budgetItems.filter(
+    item => item.submittedTo === currentUser.unitId && (item.status === 'pending' || item.status === 'approved')
+  );
+
+  const directChildren = units.filter(u => u.parentId === currentUser.unitId);
+  const directChildrenIds = directChildren.map(u => u.id);
+
+  const budgetsFromDirectChildren = budgetItems.filter(
+    item => directChildrenIds.includes(item.unitId) && item.submittedTo === currentUser.unitId
+  );
+
+  const allChildBudgetsApproved = budgetsFromDirectChildren.length > 0 &&
+    budgetsFromDirectChildren.every(item => item.status === 'approved');
+
   useEffect(() => {
     const checkReceivedLimit = async () => {
       if (isTopLevel || !hasSubordinates) {
@@ -62,7 +76,7 @@ export function BudgetEntryView() {
     checkReceivedLimit();
   }, [currentUser.unitId, isTopLevel, hasSubordinates]);
 
-  const shouldShowLimitAssignment = hasSubordinates && (isTopLevel ? allApprovedItems.length > 0 : hasReceivedLimit);
+  const shouldShowLimitAssignment = hasSubordinates && (isTopLevel ? allChildBudgetsApproved : (hasReceivedLimit && allChildBudgetsApproved));
 
   const handleAddNew = () => {
     setIsAddingNew(true);
