@@ -11,6 +11,7 @@ interface VersionHistoryProps {
 export function VersionHistory({ unitId, getBudgetVersions, onCompare }: VersionHistoryProps) {
   const [versions, setVersions] = useState<BudgetVersion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     loadVersions();
@@ -78,91 +79,128 @@ export function VersionHistory({ unitId, getBudgetVersions, onCompare }: Version
     }
   };
 
-  if (loading) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Historia wersji</h3>
-        <p className="text-gray-500">Ładowanie...</p>
-      </div>
-    );
-  }
+  const handleCompareClick = async () => {
+    setShowModal(true);
+    if (versions.length === 0) {
+      await loadVersions();
+    }
+  };
 
-  if (versions.length === 0) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Historia wersji</h3>
-        <p className="text-gray-500">Brak wersji historycznych. Wersje są tworzone automatycznie po przesłaniu budżetu do zatwierdzenia.</p>
-      </div>
-    );
-  }
+  const handleVersionSelect = (version: BudgetVersion) => {
+    setShowModal(false);
+    onCompare(version);
+  };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-      <div className="p-6 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">Historia wersji</h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Przeglądaj historię zmian i porównuj wersje budżetu
-        </p>
+    <>
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Historia wersji</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Porównaj aktualny budżet z wcześniejszymi wersjami
+            </p>
+          </div>
+          <button
+            onClick={handleCompareClick}
+            disabled={loading}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <GitCompare className="w-4 h-4" />
+            <span>Porównaj wersje</span>
+          </button>
+        </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Data i czas
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Użytkownik
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Akcja
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Liczba pozycji
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Porównaj
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {versions.map((version, index) => (
-              <tr key={version.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  {formatDate(version.createdAt)}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-700">
-                  {version.createdByName || 'Nieznany użytkownik'}
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center space-x-2">
-                    {getActionIcon(version.action)}
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded ${getActionBadgeColor(
-                        version.action
-                      )}`}
-                    >
-                      {getActionLabel(version.action)}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-center text-sm text-gray-900">
-                  {version.itemsSnapshot.length}
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <button
-                    onClick={() => onCompare(version)}
-                    className="inline-flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                  >
-                    <GitCompare className="w-4 h-4" />
-                    <span>Porównaj</span>
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Wybierz wersję do porównania</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Kliknij na wersję, aby porównać ją z aktualnym stanem budżetu
+                </p>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="p-6 text-center text-gray-500">Ładowanie wersji...</div>
+              ) : versions.length === 0 ? (
+                <div className="p-6 text-center text-gray-500">
+                  Brak wersji historycznych. Wersje są tworzone automatycznie po przesłaniu budżetu do zatwierdzenia lub po edycji zatwierdzonych pozycji.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Data i czas
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Użytkownik
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Akcja
+                        </th>
+                        <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Liczba pozycji
+                        </th>
+                        <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Akcja
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {versions.map((version) => (
+                        <tr key={version.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            {formatDate(version.createdAt)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {version.createdByName || 'Nieznany użytkownik'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-2">
+                              {getActionIcon(version.action)}
+                              <span
+                                className={`px-2 py-1 text-xs font-medium rounded ${getActionBadgeColor(
+                                  version.action
+                                )}`}
+                              >
+                                {getActionLabel(version.action)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-center text-sm text-gray-900">
+                            {version.itemsSnapshot.length}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <button
+                              onClick={() => handleVersionSelect(version)}
+                              className="inline-flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                            >
+                              <GitCompare className="w-4 h-4" />
+                              <span>Wybierz</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
