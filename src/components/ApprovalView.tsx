@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, X, MessageSquare, Send, AlertCircle, ArrowUp, ChevronDown, ChevronRight, HelpCircle } from 'lucide-react';
 import { useApp } from '../AppContext';
 import { StatusBadge } from './StatusBadge';
@@ -6,6 +6,7 @@ import { Breadcrumb } from './Breadcrumb';
 import { ClarificationBadge } from './ClarificationBadge';
 import { DiscussionThread } from './DiscussionThread';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
+import { supabase } from '../lib/supabase';
 
 interface BudgetGroup {
   unitId: string;
@@ -31,14 +32,56 @@ export function ApprovalView() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [commentModalGroup, setCommentModalGroup] = useState<BudgetGroup | null>(null);
   const [comment, setComment] = useState('');
+  const [limitAmount, setLimitAmount] = useState('');
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'return' | 'clarify'>('approve');
   const [selectedItemForDiscussion, setSelectedItemForDiscussion] = useState<BudgetItem | null>(null);
+  const [availableLimit, setAvailableLimit] = useState<number | null>(null);
 
   if (!currentUser) return null;
 
   const currentUnit = units.find(u => u.id === currentUser.unitId);
   const hierarchy = currentUnit ? getUnitHierarchy(currentUnit.id, units) : [];
   const hasParent = currentUnit?.parentId !== null;
+
+  useEffect(() => {
+    const fetchAvailableLimit = async () => {
+      if (!hasParent) {
+        setAvailableLimit(null);
+        return;
+      }
+
+      const fiscalYear = new Date().getFullYear();
+
+      const { data: receivedLimit } = await supabase
+        .from('unit_limits')
+        .select('limit_assigned')
+        .eq('unit_id', currentUser.unitId)
+        .eq('fiscal_year', fiscalYear)
+        .eq('status', 'assigned')
+        .maybeSingle();
+
+      if (!receivedLimit?.limit_assigned) {
+        setAvailableLimit(0);
+        return;
+      }
+
+      const { data: assignedLimits } = await supabase
+        .from('unit_limits')
+        .select('limit_assigned')
+        .eq('assigned_by_unit_id', currentUser.unitId)
+        .eq('fiscal_year', fiscalYear)
+        .eq('status', 'assigned');
+
+      const totalAssigned = assignedLimits?.reduce(
+        (sum, item) => sum + Number(item.limit_assigned || 0),
+        0
+      ) || 0;
+
+      setAvailableLimit(Number(receivedLimit.limit_assigned) - totalAssigned);
+    };
+
+    fetchAvailableLimit();
+  }, [currentUser.unitId, hasParent, budgetItems]);
 
   const descendantUnits = currentUnit ? getAllDescendantUnits(currentUnit.id, units) : [];
   const descendantUnitIds = descendantUnits.map(u => u.id);
@@ -131,6 +174,7 @@ export function ApprovalView() {
     setCommentModalGroup(group);
     setActionType('approve');
     setComment('');
+    setLimitAmount(group.totalAmount.toString());
   };
 
   const handleReject = (group: BudgetGroup) => {
@@ -149,7 +193,25 @@ export function ApprovalView() {
     if (!commentModalGroup) return;
 
     if (actionType === 'approve') {
-      approveBudgetGroup(commentModalGroup.unitId, commentModalGroup.year, comment || undefined);
+      const limit = parseFloat(limitAmount);
+
+      if (!limitAmount.trim() || isNaN(limit) || limit <= 0) {
+        alert('Musisz wpisać prawidłową kwotę limitu dla jednostki podrzędnej');
+        return;
+      }
+
+      if (availableLimit !== null && limit > availableLimit) {
+        alert(`Limit nie może przekraczać dostępnych środków (${formatCurrency(availableLimit)})`);
+        return;
+      }
+
+      approveBudgetGroup(
+        commentModalGroup.unitId,
+        commentModalGroup.year,
+        limit,
+        commentModalGroup.totalAmount,
+        comment || undefined
+      );
     } else if (actionType === 'reject') {
       if (!comment.trim()) {
         alert('Komentarz jest wymagany przy odrzucaniu pozycji');
@@ -166,6 +228,7 @@ export function ApprovalView() {
 
     setCommentModalGroup(null);
     setComment('');
+    setLimitAmount('');
   };
 
   const handleForwardToParent = () => {
@@ -487,10 +550,35 @@ export function ApprovalView() {
                 <p className="text-sm text-gray-600 mb-2">
                   <strong>Liczba pozycji:</strong> {commentModalGroup.itemCount}
                 </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Łączna kwota:</strong> {formatCurrency(commentModalGroup.totalAmount)}
+                <p className="text-sm text-gray-600 mb-2">
+                  <strong>Łączna kwota wnioskowana:</strong> {formatCurrency(commentModalGroup.totalAmount)}
                 </p>
+                {availableLimit !== null && (
+                  <p className="text-sm text-gray-600 mb-2">
+                    <strong>Twój dostępny limit:</strong> {formatCurrency(availableLimit)}
+                  </p>
+                )}
               </div>
+
+              {actionType === 'approve' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Limit przydzielony dla jednostki <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={limitAmount}
+                    onChange={(e) => setLimitAmount(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Wpisz kwotę limitu w PLN"
+                    step="0.01"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Wartość limitu będzie przekazana w dół hierarchii. Może być mniejsza lub równa kwocie wnioskowanej.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
