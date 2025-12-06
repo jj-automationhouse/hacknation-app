@@ -10,11 +10,30 @@ import { AdminView } from './components/AdminView';
 type ViewType = 'budget' | 'approval' | 'admin';
 
 function AppContent() {
-  const { currentUser } = useApp();
+  const { currentUser, loading } = useApp();
   const [currentView, setCurrentView] = useState<ViewType>('budget');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  if (!currentUser) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Ładowanie danych...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Brak użytkowników w systemie</p>
+        </div>
+      </div>
+    );
+  }
 
   const canAccessApproval = currentUser.role === 'approver' || currentUser.role === 'admin';
   const canAccessAdmin = currentUser.role === 'admin';
