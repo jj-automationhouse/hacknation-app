@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Send, MessageSquare, AlertCircle, CheckCircle, HelpCircle } from 'lucide-react';
 import { useApp, BudgetVersion } from '../AppContext';
 import { Breadcrumb } from './Breadcrumb';
@@ -9,6 +9,7 @@ import { VersionComparison } from './VersionComparison';
 import { ClarificationBadge } from './ClarificationBadge';
 import { LimitAssignmentView } from './LimitAssignmentView';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
+import { supabase } from '../lib/supabase';
 
 export function BudgetEntryView() {
   const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions, createBudgetVersion } = useApp();
@@ -17,6 +18,7 @@ export function BudgetEntryView() {
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [selectedVersionForComparison, setSelectedVersionForComparison] = useState<BudgetVersion | null>(null);
+  const [hasReceivedLimit, setHasReceivedLimit] = useState(false);
 
   if (!currentUser) return null;
 
@@ -35,7 +37,32 @@ export function BudgetEntryView() {
     descendantUnits.some(u => u.id === item.unitId)
   );
   const allApprovedItems = allDescendantItems.filter(item => item.status === 'approved');
-  const shouldShowLimitAssignment = hasSubordinates;
+
+  useEffect(() => {
+    const checkReceivedLimit = async () => {
+      if (isTopLevel || !hasSubordinates) {
+        setHasReceivedLimit(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('unit_limits')
+        .select('status')
+        .eq('unit_id', currentUser.unitId)
+        .eq('fiscal_year', new Date().getFullYear())
+        .maybeSingle();
+
+      if (!error && data && data.status === 'assigned') {
+        setHasReceivedLimit(true);
+      } else {
+        setHasReceivedLimit(false);
+      }
+    };
+
+    checkReceivedLimit();
+  }, [currentUser.unitId, isTopLevel, hasSubordinates]);
+
+  const shouldShowLimitAssignment = hasSubordinates && (isTopLevel ? allApprovedItems.length > 0 : hasReceivedLimit);
 
   const handleAddNew = () => {
     setIsAddingNew(true);

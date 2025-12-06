@@ -32,6 +32,7 @@ export function LimitAssignmentView({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [receivedLimit, setReceivedLimit] = useState<number | null>(null);
 
   useEffect(() => {
     loadChildUnitsData();
@@ -41,6 +42,20 @@ export function LimitAssignmentView({
     try {
       setLoading(true);
       setError(null);
+
+      const { data: currentUnitLimit, error: currentLimitError } = await supabase
+        .from('unit_limits')
+        .select('limit_assigned')
+        .eq('unit_id', currentUnitId)
+        .eq('status', 'assigned')
+        .eq('fiscal_year', new Date().getFullYear())
+        .maybeSingle();
+
+      if (!currentLimitError && currentUnitLimit) {
+        setReceivedLimit(currentUnitLimit.limit_assigned);
+      } else {
+        setReceivedLimit(null);
+      }
 
       const { data: units, error: unitsError } = await supabase
         .from('organizational_units')
@@ -129,6 +144,16 @@ export function LimitAssignmentView({
       setSaving(true);
       setError(null);
 
+      const totalAssigned = childUnits.reduce((sum, unit) => {
+        return sum + parseFloat(limits[unit.unitId] || '0');
+      }, 0);
+
+      if (receivedLimit !== null && totalAssigned > receivedLimit) {
+        setError(`Suma przydzielonych limitów (${formatCurrency(totalAssigned)}) przekracza otrzymany limit (${formatCurrency(receivedLimit)})`);
+        setSaving(false);
+        return;
+      }
+
       const limitsToSave = childUnits.map(unit => {
         const limitAmount = parseFloat(limits[unit.unitId] || '0');
 
@@ -191,6 +216,16 @@ export function LimitAssignmentView({
         return;
       }
 
+      const totalAssigned = childUnits.reduce((sum, unit) => {
+        return sum + parseFloat(limits[unit.unitId] || '0');
+      }, 0);
+
+      if (receivedLimit !== null && totalAssigned > receivedLimit) {
+        setError(`Suma przydzielonych limitów (${formatCurrency(totalAssigned)}) przekracza otrzymany limit (${formatCurrency(receivedLimit)})`);
+        setSaving(false);
+        return;
+      }
+
       const limitsToApprove = childUnits.map(unit => {
         const limitAmount = parseFloat(limits[unit.unitId] || '0');
 
@@ -230,6 +265,16 @@ export function LimitAssignmentView({
 
           if (insertError) throw insertError;
         }
+      }
+
+      if (receivedLimit !== null) {
+        const { error: updateCurrentError } = await supabase
+          .from('unit_limits')
+          .update({ status: 'distributed' })
+          .eq('unit_id', currentUnitId)
+          .eq('fiscal_year', new Date().getFullYear());
+
+        if (updateCurrentError) throw updateCurrentError;
       }
 
       await loadChildUnitsData();
@@ -303,17 +348,34 @@ export function LimitAssignmentView({
           </div>
         )}
 
+        {receivedLimit !== null && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-900">Otrzymany limit od jednostki nadrzędnej</p>
+                <p className="text-2xl font-bold text-blue-700 mt-1">{formatCurrency(receivedLimit)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium text-blue-900">Pozostało do rozdysponowania</p>
+                <p className={`text-2xl font-bold mt-1 ${receivedLimit - totalLimits >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {formatCurrency(receivedLimit - totalLimits)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg">
           <div>
             <p className="text-sm text-gray-600">Suma wnioskowanych</p>
             <p className="text-lg font-semibold text-gray-900">{formatCurrency(totalRequested)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Suma przyznanych limitów</p>
+            <p className="text-sm text-gray-600">Suma przydzielanych limitów</p>
             <p className="text-lg font-semibold text-blue-900">{formatCurrency(totalLimits)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Różnica</p>
+            <p className="text-sm text-gray-600">Różnica vs wnioskowane</p>
             <p className={`text-lg font-semibold ${difference >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
               {difference >= 0 ? '+' : ''}{formatCurrency(difference)}
             </p>
