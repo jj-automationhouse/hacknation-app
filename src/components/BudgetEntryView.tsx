@@ -6,6 +6,7 @@ import { DiscussionThread } from './DiscussionThread';
 import { BudgetItemRow } from './BudgetItemRow';
 import { VersionHistory } from './VersionHistory';
 import { VersionComparison } from './VersionComparison';
+import { ClarificationBadge } from './ClarificationBadge';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 
 export function BudgetEntryView() {
