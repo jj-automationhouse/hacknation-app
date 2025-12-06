@@ -193,25 +193,37 @@ export function ApprovalView() {
     if (!commentModalGroup) return;
 
     if (actionType === 'approve') {
-      const limit = parseFloat(limitAmount);
+      const hasLimitToAssign = !hasParent || (availableLimit !== null && availableLimit > 0);
 
-      if (!limitAmount.trim() || isNaN(limit) || limit <= 0) {
-        alert('Musisz wpisać prawidłową kwotę limitu dla jednostki podrzędnej');
-        return;
+      if (hasLimitToAssign) {
+        const limit = parseFloat(limitAmount);
+
+        if (!limitAmount.trim() || isNaN(limit) || limit <= 0) {
+          alert('Musisz wpisać prawidłową kwotę limitu dla jednostki podrzędnej');
+          return;
+        }
+
+        if (availableLimit !== null && limit > availableLimit) {
+          alert(`Limit nie może przekraczać dostępnych środków (${formatCurrency(availableLimit)})`);
+          return;
+        }
+
+        approveBudgetGroup(
+          commentModalGroup.unitId,
+          commentModalGroup.year,
+          limit,
+          commentModalGroup.totalAmount,
+          comment || undefined
+        );
+      } else {
+        approveBudgetGroup(
+          commentModalGroup.unitId,
+          commentModalGroup.year,
+          null,
+          commentModalGroup.totalAmount,
+          comment || undefined
+        );
       }
-
-      if (availableLimit !== null && limit > availableLimit) {
-        alert(`Limit nie może przekraczać dostępnych środków (${formatCurrency(availableLimit)})`);
-        return;
-      }
-
-      approveBudgetGroup(
-        commentModalGroup.unitId,
-        commentModalGroup.year,
-        limit,
-        commentModalGroup.totalAmount,
-        comment || undefined
-      );
     } else if (actionType === 'reject') {
       if (!comment.trim()) {
         alert('Komentarz jest wymagany przy odrzucaniu pozycji');
@@ -560,7 +572,7 @@ export function ApprovalView() {
                 )}
               </div>
 
-              {actionType === 'approve' && (
+              {actionType === 'approve' && (!hasParent || (availableLimit !== null && availableLimit > 0)) && (
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Limit przydzielony dla jednostki <span className="text-red-600">*</span>
@@ -576,6 +588,16 @@ export function ApprovalView() {
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Wartość limitu będzie przekazana w dół hierarchii. Może być mniejsza lub równa kwocie wnioskowanej.
+                  </p>
+                </div>
+              )}
+
+              {actionType === 'approve' && hasParent && (availableLimit === null || availableLimit === 0) && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="text-sm text-amber-800">
+                    <strong>Uwaga:</strong> Nie masz jeszcze przydzielonych środków od jednostki nadrzędnej.
+                    Możesz zatwierdzić budżet, ale nie będziesz mógł przydzielić limitu.
+                    Limit będzie można przydzielić później, po otrzymaniu środków.
                   </p>
                 </div>
               )}

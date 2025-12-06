@@ -37,7 +37,7 @@ interface AppContextType {
   rejectBudgetItem: (itemId: string, comment: string) => Promise<void>;
   forwardBudgetToParent: (unitId: string) => Promise<void>;
   returnBudgetToChild: (itemId: string, comment: string) => Promise<void>;
-  approveBudgetGroup: (unitId: string, year: number, limitAssigned: number, totalRequested: number, comment?: string) => Promise<void>;
+  approveBudgetGroup: (unitId: string, year: number, limitAssigned: number | null, totalRequested: number, comment?: string) => Promise<void>;
   rejectBudgetGroup: (unitId: string, year: number, comment: string) => Promise<void>;
   returnBudgetGroupToChild: (unitId: string, year: number, comment: string) => Promise<void>;
   requestClarification: (itemId: string, comment: string) => Promise<void>;
@@ -403,7 +403,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const approveBudgetGroup = async (
     unitId: string,
     year: number,
-    limitAssigned: number,
+    limitAssigned: number | null,
     totalRequested: number,
     comment?: string
   ) => {
@@ -423,22 +423,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const { error: limitError } = await supabase
-      .from('unit_limits')
-      .upsert({
-        unit_id: unitId,
-        assigned_by_unit_id: currentUser.unitId,
-        total_requested: totalRequested,
-        limit_assigned: limitAssigned,
-        status: 'assigned',
-        fiscal_year: year,
-      }, {
-        onConflict: 'unit_id,assigned_by_unit_id,fiscal_year'
-      });
+    if (limitAssigned !== null) {
+      const { error: limitError } = await supabase
+        .from('unit_limits')
+        .upsert({
+          unit_id: unitId,
+          assigned_by_unit_id: currentUser.unitId,
+          total_requested: totalRequested,
+          limit_assigned: limitAssigned,
+          status: 'assigned',
+          fiscal_year: year,
+        }, {
+          onConflict: 'unit_id,assigned_by_unit_id,fiscal_year'
+        });
 
-    if (limitError) {
-      console.error('Error assigning limit:', limitError);
-      return;
+      if (limitError) {
+        console.error('Error assigning limit:', limitError);
+        return;
+      }
     }
 
     await refreshData();
