@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, FileText, Shield, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileText, Shield, Menu, X, DollarSign } from 'lucide-react';
 import { AppProvider, useApp } from './AppContext';
 import { RoleSwitcher } from './components/RoleSwitcher';
 import { OrganizationTree } from './components/OrganizationTree';
 import { BudgetEntryView } from './components/BudgetEntryView';
 import { ApprovalView } from './components/ApprovalView';
 import { AdminView } from './components/AdminView';
+import { LimitsView } from './components/LimitsView';
 
-type ViewType = 'budget' | 'approval' | 'admin';
+type ViewType = 'budget' | 'approval' | 'admin' | 'limits';
 
 function AppContent() {
   const { currentUser, loading } = useApp();
@@ -16,6 +17,7 @@ function AppContent() {
 
   const canAccessApproval = currentUser?.role === 'approver' || currentUser?.role === 'admin';
   const canAccessAdmin = currentUser?.role === 'admin';
+  const canAccessLimits = currentUser?.role === 'approver' || currentUser?.role === 'admin';
 
   useEffect(() => {
     if (!currentUser) return;
@@ -23,8 +25,10 @@ function AppContent() {
       setCurrentView('budget');
     } else if (currentView === 'admin' && !canAccessAdmin) {
       setCurrentView('budget');
+    } else if (currentView === 'limits' && !canAccessLimits) {
+      setCurrentView('budget');
     }
-  }, [currentUser, canAccessApproval, canAccessAdmin, currentView]);
+  }, [currentUser, canAccessApproval, canAccessAdmin, canAccessLimits, currentView]);
 
   if (loading) {
     return (
@@ -138,6 +142,23 @@ function AppContent() {
               </button>
             )}
 
+            {canAccessLimits && (
+              <button
+                onClick={() => {
+                  setCurrentView('limits');
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-md transition-colors ${
+                  currentView === 'limits'
+                    ? 'bg-blue-50 text-blue-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <DollarSign className="w-5 h-5" />
+                <span>Limity</span>
+              </button>
+            )}
+
             {canAccessAdmin && (
               <button
                 onClick={() => {
@@ -163,6 +184,7 @@ function AppContent() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full">
           {currentView === 'budget' && <BudgetEntryView />}
           {currentView === 'approval' && canAccessApproval && <ApprovalView />}
+          {currentView === 'limits' && canAccessLimits && <LimitsView />}
           {currentView === 'admin' && canAccessAdmin && <AdminView />}
         </main>
       </div>
