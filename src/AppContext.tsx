@@ -1,18 +1,14 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import {
   User,
   BudgetItem,
   BudgetSubmission,
   BudgetComment,
   OrganizationalUnit,
-  users as initialUsers,
-  organizationalUnits,
-  initialBudgetItems,
-  initialSubmissions,
-  initialComments,
   getParentUnit,
   getAllDescendantUnits,
 } from './mockData';
+import { supabase } from './lib/supabase';
 
 interface AppContextType {
   currentUser: User | null;
@@ -22,235 +18,391 @@ interface AppContextType {
   budgetItems: BudgetItem[];
   submissions: BudgetSubmission[];
   comments: BudgetComment[];
-  addBudgetItem: (item: Omit<BudgetItem, 'id'>) => void;
-  updateBudgetItem: (id: string, updates: Partial<BudgetItem>) => void;
-  submitBudget: (unitId: string) => void;
-  approveBudgetItem: (itemId: string, comment?: string) => void;
-  rejectBudgetItem: (itemId: string, comment: string) => void;
-  forwardBudgetToParent: (unitId: string) => void;
-  returnBudgetToChild: (itemId: string, comment: string) => void;
-  approveBudgetGroup: (unitId: string, year: number, comment?: string) => void;
-  rejectBudgetGroup: (unitId: string, year: number, comment: string) => void;
-  returnBudgetGroupToChild: (unitId: string, year: number, comment: string) => void;
-  requestClarification: (itemId: string, comment: string) => void;
-  addComment: (itemId: string, content: string, parentCommentId?: string) => void;
-  markCommentsAsRead: (itemId: string) => void;
-  resolveClarification: (itemId: string) => void;
+  loading: boolean;
+  addBudgetItem: (item: Omit<BudgetItem, 'id'>) => Promise<void>;
+  updateBudgetItem: (id: string, updates: Partial<BudgetItem>) => Promise<void>;
+  submitBudget: (unitId: string) => Promise<void>;
+  approveBudgetItem: (itemId: string, comment?: string) => Promise<void>;
+  rejectBudgetItem: (itemId: string, comment: string) => Promise<void>;
+  forwardBudgetToParent: (unitId: string) => Promise<void>;
+  returnBudgetToChild: (itemId: string, comment: string) => Promise<void>;
+  approveBudgetGroup: (unitId: string, year: number, comment?: string) => Promise<void>;
+  rejectBudgetGroup: (unitId: string, year: number, comment: string) => Promise<void>;
+  returnBudgetGroupToChild: (unitId: string, year: number, comment: string) => Promise<void>;
+  requestClarification: (itemId: string, comment: string) => Promise<void>;
+  addComment: (itemId: string, content: string, parentCommentId?: string) => Promise<void>;
+  markCommentsAsRead: (itemId: string) => Promise<void>;
+  resolveClarification: (itemId: string) => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User | null>(initialUsers[0]);
-  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>(initialBudgetItems);
-  const [submissions, setSubmissions] = useState<BudgetSubmission[]>(initialSubmissions);
-  const [comments, setComments] = useState<BudgetComment[]>(initialComments);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [units, setUnits] = useState<OrganizationalUnit[]>([]);
+  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([]);
+  const [submissions, setSubmissions] = useState<BudgetSubmission[]>([]);
+  const [comments, setComments] = useState<BudgetComment[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addBudgetItem = (item: Omit<BudgetItem, 'id'>) => {
-    const newItem: BudgetItem = {
-      ...item,
-      id: `b-${Date.now()}`,
-    };
-    setBudgetItems(prev => [...prev, newItem]);
+  const refreshData = async () => {
+    try {
+      const [unitsRes, usersRes, itemsRes, submissionsRes, commentsRes] = await Promise.all([
+        supabase.from('organizational_units').select('*'),
+        supabase.from('users').select('*'),
+        supabase.from('budget_items').select('*'),
+        supabase.from('budget_submissions').select('*'),
+        supabase.from('budget_comments').select('*'),
+      ]);
+
+      if (unitsRes.data) {
+        setUnits(unitsRes.data.map(u => ({
+          id: u.id,
+          name: u.name,
+          type: u.type,
+          parentId: u.parent_id,
+        })));
+      }
+
+      if (usersRes.data) {
+        setUsers(usersRes.data.map(u => ({
+          id: u.id,
+          name: u.name,
+          role: u.role,
+          unitId: u.unit_id,
+        })));
+      }
+
+      if (itemsRes.data) {
+        setBudgetItems(itemsRes.data.map(i => ({
+          id: i.id,
+          unitId: i.unit_id,
+          category: i.category,
+          description: i.description,
+          year: i.year,
+          amount: Number(i.amount),
+          status: i.status,
+          comment: i.comment || undefined,
+          submittedTo: i.submitted_to || undefined,
+          clarificationStatus: i.clarification_status,
+          hasUnreadComments: i.has_unread_comments || false,
+        })));
+      }
+
+      if (submissionsRes.data) {
+        const submissionsWithItems = await Promise.all(
+          submissionsRes.data.map(async (s) => {
+            const { data: items } = await supabase
+              .from('budget_submission_items')
+              .select('budget_item_id')
+              .eq('submission_id', s.id);
+
+            return {
+              id: s.id,
+              fromUnitId: s.from_unit_id,
+              toUnitId: s.to_unit_id,
+              status: s.status,
+              budgetItemIds: items?.map(i => i.budget_item_id) || [],
+              submittedAt: s.submitted_at ? new Date(s.submitted_at) : undefined,
+            };
+          })
+        );
+        setSubmissions(submissionsWithItems);
+      }
+
+      if (commentsRes.data) {
+        setComments(commentsRes.data.map(c => ({
+          id: c.id,
+          budgetItemId: c.budget_item_id,
+          authorId: c.author_id,
+          authorName: c.author_name,
+          content: c.content,
+          createdAt: new Date(c.created_at),
+          isResponse: c.is_response || false,
+          parentCommentId: c.parent_comment_id || undefined,
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateBudgetItem = (id: string, updates: Partial<BudgetItem>) => {
-    setBudgetItems(prev =>
-      prev.map(item => (item.id === id ? { ...item, ...updates } : item))
-    );
-  };
+  useEffect(() => {
+    refreshData();
+  }, []);
 
-  const submitBudget = (unitId: string) => {
-    const unit = organizationalUnits.find(u => u.id === unitId);
-    if (!unit || !unit.parentId) {
+  useEffect(() => {
+    if (users.length > 0 && !currentUser) {
+      setCurrentUser(users[0]);
+    }
+  }, [users, currentUser]);
+
+  const addBudgetItem = async (item: Omit<BudgetItem, 'id'>) => {
+    if (!currentUser) return;
+
+    const { error } = await supabase.from('budget_items').insert({
+      unit_id: item.unitId,
+      category: item.category,
+      description: item.description,
+      year: item.year,
+      amount: item.amount,
+      status: item.status,
+      clarification_status: item.clarificationStatus,
+    });
+
+    if (error) {
+      console.error('Error adding budget item:', error);
       return;
     }
 
-    let submittedItemIds: string[] = [];
-
-    setBudgetItems(prev => {
-      const itemsToSubmit = prev.filter(
-        item => item.unitId === unitId && item.status === 'draft'
-      );
-
-      if (itemsToSubmit.length === 0) return prev;
-
-      submittedItemIds = itemsToSubmit.map(item => item.id);
-
-      const updatedItems = prev.map(item =>
-        submittedItemIds.includes(item.id)
-          ? { ...item, status: 'pending' as const, submittedTo: unit.parentId! }
-          : item
-      );
-
-      return updatedItems;
-    });
-
-    if (submittedItemIds.length > 0) {
-      const submission: BudgetSubmission = {
-        id: `s-${Date.now()}`,
-        fromUnitId: unitId,
-        toUnitId: unit.parentId,
-        status: 'pending',
-        budgetItemIds: submittedItemIds,
-        submittedAt: new Date(),
-      };
-
-      setSubmissions(prev => [...prev, submission]);
-    }
+    await refreshData();
   };
 
-  const approveBudgetItem = (itemId: string, comment?: string) => {
-    updateBudgetItem(itemId, {
+  const updateBudgetItem = async (id: string, updates: Partial<BudgetItem>) => {
+    const dbUpdates: any = {};
+    if (updates.status) dbUpdates.status = updates.status;
+    if (updates.comment !== undefined) dbUpdates.comment = updates.comment;
+    if (updates.submittedTo !== undefined) dbUpdates.submitted_to = updates.submittedTo;
+    if (updates.clarificationStatus) dbUpdates.clarification_status = updates.clarificationStatus;
+    if (updates.hasUnreadComments !== undefined) dbUpdates.has_unread_comments = updates.hasUnreadComments;
+    if (updates.amount) dbUpdates.amount = updates.amount;
+
+    const { error } = await supabase
+      .from('budget_items')
+      .update(dbUpdates)
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating budget item:', error);
+      return;
+    }
+
+    await refreshData();
+  };
+
+  const submitBudget = async (unitId: string) => {
+    const unit = units.find(u => u.id === unitId);
+    if (!unit || !unit.parentId) return;
+
+    const itemsToSubmit = budgetItems.filter(
+      item => item.unitId === unitId && item.status === 'draft'
+    );
+
+    if (itemsToSubmit.length === 0) return;
+
+    for (const item of itemsToSubmit) {
+      await supabase
+        .from('budget_items')
+        .update({ status: 'pending', submitted_to: unit.parentId })
+        .eq('id', item.id);
+    }
+
+    const { data: submission, error: submissionError } = await supabase
+      .from('budget_submissions')
+      .insert({
+        from_unit_id: unitId,
+        to_unit_id: unit.parentId,
+        status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (submissionError || !submission) {
+      console.error('Error creating submission:', submissionError);
+      return;
+    }
+
+    for (const item of itemsToSubmit) {
+      await supabase.from('budget_submission_items').insert({
+        submission_id: submission.id,
+        budget_item_id: item.id,
+      });
+    }
+
+    await refreshData();
+  };
+
+  const approveBudgetItem = async (itemId: string, comment?: string) => {
+    await updateBudgetItem(itemId, {
       status: 'approved',
       comment: comment || undefined,
     });
   };
 
-  const rejectBudgetItem = (itemId: string, comment: string) => {
-    updateBudgetItem(itemId, {
+  const rejectBudgetItem = async (itemId: string, comment: string) => {
+    await updateBudgetItem(itemId, {
       status: 'rejected',
       comment,
     });
   };
 
-  const returnBudgetToChild = (itemId: string, comment: string) => {
-    updateBudgetItem(itemId, {
+  const returnBudgetToChild = async (itemId: string, comment: string) => {
+    await updateBudgetItem(itemId, {
       status: 'draft',
       comment,
       submittedTo: undefined,
     });
   };
 
-  const forwardBudgetToParent = (unitId: string) => {
-    const unit = organizationalUnits.find(u => u.id === unitId);
+  const forwardBudgetToParent = async (unitId: string) => {
+    const unit = units.find(u => u.id === unitId);
     if (!unit || !unit.parentId) return;
 
-    const descendantUnits = getAllDescendantUnits(unitId, organizationalUnits);
+    const descendantUnits = getAllDescendantUnits(unitId, units);
     const descendantUnitIds = [unitId, ...descendantUnits.map(u => u.id)];
 
-    let forwardedItemIds: string[] = [];
+    const itemsToForward = budgetItems.filter(
+      item =>
+        descendantUnitIds.includes(item.unitId) &&
+        item.status === 'approved' &&
+        item.submittedTo === unitId
+    );
 
-    setBudgetItems(prev => {
-      const itemsToForward = prev.filter(
-        item =>
-          descendantUnitIds.includes(item.unitId) &&
-          item.status === 'approved' &&
-          item.submittedTo === unitId
-      );
+    if (itemsToForward.length === 0) return;
 
-      if (itemsToForward.length === 0) return prev;
-
-      forwardedItemIds = itemsToForward.map(item => item.id);
-
-      return prev.map(item =>
-        forwardedItemIds.includes(item.id)
-          ? { ...item, submittedTo: unit.parentId!, status: 'pending' as const }
-          : item
-      );
-    });
-
-    if (forwardedItemIds.length > 0) {
-      const submission: BudgetSubmission = {
-        id: `s-${Date.now()}`,
-        fromUnitId: unitId,
-        toUnitId: unit.parentId,
-        status: 'pending',
-        budgetItemIds: forwardedItemIds,
-        submittedAt: new Date(),
-      };
-
-      setSubmissions(prev => [...prev, submission]);
+    for (const item of itemsToForward) {
+      await supabase
+        .from('budget_items')
+        .update({ submitted_to: unit.parentId, status: 'pending' })
+        .eq('id', item.id);
     }
+
+    const { data: submission, error: submissionError } = await supabase
+      .from('budget_submissions')
+      .insert({
+        from_unit_id: unitId,
+        to_unit_id: unit.parentId,
+        status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (submissionError || !submission) {
+      console.error('Error creating submission:', submissionError);
+      return;
+    }
+
+    for (const item of itemsToForward) {
+      await supabase.from('budget_submission_items').insert({
+        submission_id: submission.id,
+        budget_item_id: item.id,
+      });
+    }
+
+    await refreshData();
   };
 
-  const approveBudgetGroup = (unitId: string, year: number, comment?: string) => {
-    setBudgetItems(prev =>
-      prev.map(item =>
-        item.unitId === unitId && item.year === year && item.status === 'pending'
-          ? { ...item, status: 'approved' as const, comment: comment || undefined }
-          : item
-      )
-    );
+  const approveBudgetGroup = async (unitId: string, year: number, comment?: string) => {
+    const { error } = await supabase
+      .from('budget_items')
+      .update({ status: 'approved', comment: comment || null })
+      .eq('unit_id', unitId)
+      .eq('year', year)
+      .eq('status', 'pending');
+
+    if (error) {
+      console.error('Error approving budget group:', error);
+      return;
+    }
+
+    await refreshData();
   };
 
-  const rejectBudgetGroup = (unitId: string, year: number, comment: string) => {
-    setBudgetItems(prev =>
-      prev.map(item =>
-        item.unitId === unitId && item.year === year && item.status === 'pending'
-          ? { ...item, status: 'rejected' as const, comment }
-          : item
-      )
-    );
+  const rejectBudgetGroup = async (unitId: string, year: number, comment: string) => {
+    const { error } = await supabase
+      .from('budget_items')
+      .update({ status: 'rejected', comment })
+      .eq('unit_id', unitId)
+      .eq('year', year)
+      .eq('status', 'pending');
+
+    if (error) {
+      console.error('Error rejecting budget group:', error);
+      return;
+    }
+
+    await refreshData();
   };
 
-  const returnBudgetGroupToChild = (unitId: string, year: number, comment: string) => {
-    setBudgetItems(prev =>
-      prev.map(item =>
-        item.unitId === unitId && item.year === year && item.status === 'pending'
-          ? { ...item, status: 'draft' as const, comment, submittedTo: undefined }
-          : item
-      )
-    );
+  const returnBudgetGroupToChild = async (unitId: string, year: number, comment: string) => {
+    const { error } = await supabase
+      .from('budget_items')
+      .update({ status: 'draft', comment, submitted_to: null })
+      .eq('unit_id', unitId)
+      .eq('year', year)
+      .eq('status', 'pending');
+
+    if (error) {
+      console.error('Error returning budget group:', error);
+      return;
+    }
+
+    await refreshData();
   };
 
-  const requestClarification = (itemId: string, content: string) => {
+  const requestClarification = async (itemId: string, content: string) => {
     if (!currentUser) return;
 
-    const newComment: BudgetComment = {
-      id: `c-${Date.now()}`,
-      budgetItemId: itemId,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
+    const { error } = await supabase.from('budget_comments').insert({
+      budget_item_id: itemId,
+      author_id: currentUser.id,
+      author_name: currentUser.name,
       content,
-      createdAt: new Date(),
-    };
+    });
 
-    setComments(prev => [...prev, newComment]);
+    if (error) {
+      console.error('Error adding clarification:', error);
+      return;
+    }
 
-    updateBudgetItem(itemId, {
+    await updateBudgetItem(itemId, {
       clarificationStatus: 'requested',
       hasUnreadComments: true,
     });
   };
 
-  const addComment = (itemId: string, content: string, parentCommentId?: string) => {
+  const addComment = async (itemId: string, content: string, parentCommentId?: string) => {
     if (!currentUser) return;
 
-    const newComment: BudgetComment = {
-      id: `c-${Date.now()}`,
-      budgetItemId: itemId,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
+    const { error } = await supabase.from('budget_comments').insert({
+      budget_item_id: itemId,
+      author_id: currentUser.id,
+      author_name: currentUser.name,
       content,
-      createdAt: new Date(),
-      isResponse: !!parentCommentId,
-      parentCommentId,
-    };
+      is_response: !!parentCommentId,
+      parent_comment_id: parentCommentId || null,
+    });
 
-    setComments(prev => [...prev, newComment]);
+    if (error) {
+      console.error('Error adding comment:', error);
+      return;
+    }
 
     const item = budgetItems.find(i => i.id === itemId);
     if (item && item.clarificationStatus === 'requested' && !parentCommentId) {
-      updateBudgetItem(itemId, {
+      await updateBudgetItem(itemId, {
         clarificationStatus: 'responded',
         hasUnreadComments: true,
       });
     } else {
-      updateBudgetItem(itemId, {
+      await updateBudgetItem(itemId, {
         hasUnreadComments: true,
       });
     }
   };
 
-  const markCommentsAsRead = (itemId: string) => {
-    updateBudgetItem(itemId, {
+  const markCommentsAsRead = async (itemId: string) => {
+    await updateBudgetItem(itemId, {
       hasUnreadComments: false,
     });
   };
 
-  const resolveClarification = (itemId: string) => {
-    updateBudgetItem(itemId, {
+  const resolveClarification = async (itemId: string) => {
+    await updateBudgetItem(itemId, {
       clarificationStatus: 'resolved',
       hasUnreadComments: false,
     });
@@ -261,11 +413,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         currentUser,
         setCurrentUser,
-        users: initialUsers,
-        units: organizationalUnits,
+        users,
+        units,
         budgetItems,
         submissions,
         comments,
+        loading,
         addBudgetItem,
         updateBudgetItem,
         submitBudget,
@@ -280,6 +433,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addComment,
         markCommentsAsRead,
         resolveClarification,
+        refreshData,
       }}
     >
       {children}
