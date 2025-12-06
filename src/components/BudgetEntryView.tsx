@@ -19,6 +19,8 @@ export function BudgetEntryView() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [selectedVersionForComparison, setSelectedVersionForComparison] = useState<BudgetVersion | null>(null);
   const [hasReceivedLimit, setHasReceivedLimit] = useState(false);
+  const [receivedLimitAmount, setReceivedLimitAmount] = useState<number | null>(null);
+  const [totalRequestedAmount, setTotalRequestedAmount] = useState<number | null>(null);
 
   if (!currentUser) return null;
 
@@ -54,27 +56,26 @@ export function BudgetEntryView() {
 
   useEffect(() => {
     const checkReceivedLimit = async () => {
-      if (isTopLevel || !hasSubordinates) {
-        setHasReceivedLimit(false);
-        return;
-      }
-
       const { data, error } = await supabase
         .from('unit_limits')
-        .select('status')
+        .select('status, limit_assigned, total_requested')
         .eq('unit_id', currentUser.unitId)
         .eq('fiscal_year', new Date().getFullYear())
         .maybeSingle();
 
       if (!error && data && data.status === 'assigned') {
         setHasReceivedLimit(true);
+        setReceivedLimitAmount(data.limit_assigned || null);
+        setTotalRequestedAmount(data.total_requested || null);
       } else {
         setHasReceivedLimit(false);
+        setReceivedLimitAmount(null);
+        setTotalRequestedAmount(null);
       }
     };
 
     checkReceivedLimit();
-  }, [currentUser.unitId, isTopLevel, hasSubordinates]);
+  }, [currentUser.unitId, budgetItems]);
 
   const shouldShowLimitAssignment = hasSubordinates && (isTopLevel ? allChildBudgetsApproved : (hasReceivedLimit && allChildBudgetsApproved));
 
@@ -174,6 +175,56 @@ export function BudgetEntryView() {
             </p>
           </div>
         </div>
+      )}
+
+      {hasReceivedLimit && receivedLimitAmount !== null && (
+        <>
+          <div className="bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-300 rounded-lg p-6 shadow-md">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-emerald-700 uppercase tracking-wide">Limit przyznany</div>
+                <div className="text-4xl font-bold text-emerald-900 mt-2">{formatCurrency(receivedLimitAmount)}</div>
+                {totalRequestedAmount !== null && (
+                  <div className="text-sm text-emerald-700 mt-2">
+                    Wnioskowano: {formatCurrency(totalRequestedAmount)}
+                  </div>
+                )}
+              </div>
+              <div className="bg-white rounded-full p-4 shadow-sm">
+                <CheckCircle className="w-12 h-12 text-emerald-600" />
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-emerald-200">
+              <p className="text-sm text-emerald-800">
+                {hasSubordinates ? (
+                  <>
+                    Limit otrzymany od jednostki nadrzędnej. Możesz go teraz przydzielić jednostkom podległym w sekcji "Przydzielanie limitów" poniżej.
+                  </>
+                ) : (
+                  <>
+                    Limit otrzymany od jednostki nadrzędnej. Twórz pozycje budżetowe w ramach tego limitu.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {!hasSubordinates && totalAmount > receivedLimitAmount && (
+            <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 flex items-start space-x-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-red-900">Przekroczono przyznany limit!</p>
+                <p className="text-sm text-red-700 mt-1">
+                  Łączna wartość pozycji budżetowych ({formatCurrency(totalAmount)}) przekracza
+                  przyznany limit ({formatCurrency(receivedLimitAmount)}) o {formatCurrency(totalAmount - receivedLimitAmount)}.
+                </p>
+                <p className="text-sm text-red-700 mt-2">
+                  Zmniejsz kwoty w pozycjach budżetowych, aby zmieścić się w limicie przed przesłaniem do zatwierdzenia.
+                </p>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <div className="grid grid-cols-4 gap-4">
