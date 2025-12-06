@@ -1,29 +1,16 @@
 import React, { useState } from 'react';
 import { Plus, Send, MessageSquare, AlertCircle, CheckCircle, HelpCircle } from 'lucide-react';
 import { useApp } from '../AppContext';
-import { StatusBadge } from './StatusBadge';
 import { Breadcrumb } from './Breadcrumb';
-import { ClarificationBadge } from './ClarificationBadge';
 import { DiscussionThread } from './DiscussionThread';
-import { BudgetSectionSelect } from './BudgetSectionSelect';
-import { BudgetDivisionSelect } from './BudgetDivisionSelect';
-import { BudgetChapterSelect } from './BudgetChapterSelect';
+import { BudgetItemRow } from './BudgetItemRow';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 
 export function BudgetEntryView() {
-  const { currentUser, units, budgetItems, addBudgetItem, submitBudget, updateBudgetItem } = useApp();
-  const [showForm, setShowForm] = useState(false);
+  const { currentUser, units, budgetItems, addBudgetItem, submitBudget } = useApp();
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [selectedItemForDiscussion, setSelectedItemForDiscussion] = useState<BudgetItem | null>(null);
-  const [formData, setFormData] = useState({
-    budgetSection: '',
-    budgetDivision: '',
-    budgetChapter: '',
-    category: '',
-    description: '',
-    amount: '',
-    year: new Date().getFullYear(),
-  });
+  const [isAddingNew, setIsAddingNew] = useState(false);
 
   if (!currentUser) return null;
 
@@ -36,38 +23,22 @@ export function BudgetEntryView() {
   const hasDraftItems = userBudgetItems.some(item => item.status === 'draft');
   const hasParent = currentUnit?.parentId !== null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddNew = () => {
+    setIsAddingNew(true);
+  };
+
+  const handleSaveNew = (data: Omit<BudgetItem, 'id' | 'unitId' | 'status' | 'clarificationStatus'>) => {
     addBudgetItem({
       unitId: currentUser.unitId,
-      budgetSection: formData.budgetSection,
-      budgetDivision: formData.budgetDivision,
-      budgetChapter: formData.budgetChapter,
-      category: formData.category,
-      description: formData.description,
-      amount: parseFloat(formData.amount),
-      year: formData.year,
+      ...data,
       status: 'draft',
       clarificationStatus: 'none',
     });
-    setFormData({
-      budgetSection: '',
-      budgetDivision: '',
-      budgetChapter: '',
-      category: '',
-      description: '',
-      amount: '',
-      year: new Date().getFullYear(),
-    });
-    setShowForm(false);
+    setIsAddingNew(false);
   };
 
-  const handleDivisionChange = (value: string) => {
-    setFormData({
-      ...formData,
-      budgetDivision: value,
-      budgetChapter: '',
-    });
+  const handleCancelNew = () => {
+    setIsAddingNew(false);
   };
 
   const handleSubmitForApproval = () => {
@@ -216,8 +187,9 @@ export function BudgetEntryView() {
                 </button>
               )}
               <button
-                onClick={() => setShowForm(!showForm)}
-                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+                onClick={handleAddNew}
+                disabled={isAddingNew}
+                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
                 <span>Dodaj pozycję</span>
@@ -225,94 +197,6 @@ export function BudgetEntryView() {
             </div>
           )}
         </div>
-
-        {showForm && (
-          <div className="p-6 bg-gray-50 border-b border-gray-200">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <BudgetSectionSelect
-                value={formData.budgetSection}
-                onChange={(value) => setFormData({ ...formData, budgetSection: value })}
-                required
-              />
-              <BudgetDivisionSelect
-                value={formData.budgetDivision}
-                onChange={handleDivisionChange}
-                required
-              />
-              <BudgetChapterSelect
-                value={formData.budgetChapter}
-                onChange={(value) => setFormData({ ...formData, budgetChapter: value })}
-                budgetDivision={formData.budgetDivision}
-                required
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Kategoria
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="np. Wyposażenie, Remonty"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Rok</label>
-                  <input
-                    type="number"
-                    required
-                    value={formData.year}
-                    onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Opis</label>
-                <textarea
-                  required
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                  placeholder="Szczegółowy opis potrzeby budżetowej"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Kwota (PLN)
-                </label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Zapisz pozycję
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-                >
-                  Anuluj
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -354,7 +238,16 @@ export function BudgetEntryView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {userBudgetItems.length === 0 ? (
+              {isAddingNew && (
+                <BudgetItemRow
+                  isEditing={true}
+                  isNew={true}
+                  onSave={handleSaveNew}
+                  onCancel={handleCancelNew}
+                  formatCurrency={formatCurrency}
+                />
+              )}
+              {userBudgetItems.length === 0 && !isAddingNew ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
                     <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
@@ -364,53 +257,15 @@ export function BudgetEntryView() {
                 </tr>
               ) : (
                 userBudgetItems.map(item => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                      {item.budgetSection}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
-                      {item.budgetDivision}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
-                      {item.budgetChapter}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      {item.category}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 max-w-md">
-                      {item.description}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{item.year}</td>
-                    <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">
-                      {formatCurrency(item.amount)}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <StatusBadge status={item.status} />
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <ClarificationBadge
-                        status={item.clarificationStatus}
-                        hasUnreadComments={item.hasUnreadComments}
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => setSelectedItemForDiscussion(item)}
-                        className="text-blue-600 hover:text-blue-800 transition-colors"
-                        title="Otwórz dyskusję"
-                      >
-                        <MessageSquare className="w-5 h-5 inline" />
-                      </button>
-                    </td>
-                    <td className="px-6 py-4">
-                      {item.comment && (
-                        <div className="flex items-start space-x-2 text-sm">
-                          <MessageSquare className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                          <span className="text-gray-700">{item.comment}</span>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+                  <BudgetItemRow
+                    key={item.id}
+                    item={item}
+                    isEditing={false}
+                    onSave={() => {}}
+                    onCancel={() => {}}
+                    onDiscussion={setSelectedItemForDiscussion}
+                    formatCurrency={formatCurrency}
+                  />
                 ))
               )}
             </tbody>
