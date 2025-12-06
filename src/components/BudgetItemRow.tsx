@@ -17,6 +17,9 @@ interface BudgetItemRowProps {
   onEdit?: (item: BudgetItem) => void;
   onDiscussion?: (item: BudgetItem) => void;
   formatCurrency: (amount: number) => string;
+  isDistributingLimit?: boolean;
+  limitAllocation?: number;
+  onLimitChange?: (itemId: string, value: number) => void;
 }
 
 export function BudgetItemRow({
@@ -28,6 +31,9 @@ export function BudgetItemRow({
   onEdit,
   onDiscussion,
   formatCurrency,
+  isDistributingLimit = false,
+  limitAllocation = 0,
+  onLimitChange,
 }: BudgetItemRowProps) {
   const [formData, setFormData] = useState({
     budgetSection: item?.budgetSection || '',
@@ -133,7 +139,7 @@ export function BudgetItemRow({
         <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">
           {formatCurrency(item.amount)}
         </td>
-        {isDistributingLimit && (
+        {isDistributingLimit && item && (
           <td className="px-6 py-4">
             <input
               type="number"
@@ -146,7 +152,7 @@ export function BudgetItemRow({
             />
           </td>
         )}
-        {!isDistributingLimit && (
+        {!isDistributingLimit && item && (
           <td className="px-6 py-4 text-sm text-right">
             {item.limitAmount && item.limitAmount > 0 ? (
               <div className="space-y-1">
