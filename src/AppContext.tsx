@@ -80,6 +80,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           id: i.id,
           unitId: i.unit_id,
           budgetSection: i.budget_section,
+          budgetDivision: i.budget_division,
           category: i.category,
           description: i.description,
           year: i.year,
@@ -148,6 +149,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.from('budget_items').insert({
       unit_id: item.unitId,
       budget_section: item.budgetSection,
+      budget_division: item.budgetDivision,
       category: item.category,
       description: item.description,
       year: item.year,

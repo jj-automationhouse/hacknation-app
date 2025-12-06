@@ -6,6 +6,7 @@ import { Breadcrumb } from './Breadcrumb';
 import { ClarificationBadge } from './ClarificationBadge';
 import { DiscussionThread } from './DiscussionThread';
 import { BudgetSectionSelect } from './BudgetSectionSelect';
+import { BudgetDivisionSelect } from './BudgetDivisionSelect';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 
 export function BudgetEntryView() {
@@ -15,6 +16,7 @@ export function BudgetEntryView() {
   const [selectedItemForDiscussion, setSelectedItemForDiscussion] = useState<BudgetItem | null>(null);
   const [formData, setFormData] = useState({
     budgetSection: '',
+    budgetDivision: '',
     category: '',
     description: '',
     amount: '',
@@ -37,6 +39,7 @@ export function BudgetEntryView() {
     addBudgetItem({
       unitId: currentUser.unitId,
       budgetSection: formData.budgetSection,
+      budgetDivision: formData.budgetDivision,
       category: formData.category,
       description: formData.description,
       amount: parseFloat(formData.amount),
@@ -46,6 +49,7 @@ export function BudgetEntryView() {
     });
     setFormData({
       budgetSection: '',
+      budgetDivision: '',
       category: '',
       description: '',
       amount: '',
@@ -218,6 +222,11 @@ export function BudgetEntryView() {
                 onChange={(value) => setFormData({ ...formData, budgetSection: value })}
                 required
               />
+              <BudgetDivisionSelect
+                value={formData.budgetDivision}
+                onChange={(value) => setFormData({ ...formData, budgetDivision: value })}
+                required
+              />
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -295,6 +304,9 @@ export function BudgetEntryView() {
                   Część budżetowa
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Dział
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Kategoria
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -323,7 +335,7 @@ export function BudgetEntryView() {
             <tbody className="divide-y divide-gray-200">
               {userBudgetItems.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
                     <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                     <p className="text-lg font-medium">Brak pozycji budżetowych</p>
                     <p className="text-sm mt-1">Kliknij "Dodaj pozycję" aby rozpocząć</p>
@@ -334,6 +346,9 @@ export function BudgetEntryView() {
                   <tr key={item.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                       {item.budgetSection}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
+                      {item.budgetDivision}
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {item.category}
