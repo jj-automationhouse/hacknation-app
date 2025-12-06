@@ -3,6 +3,7 @@ import { Check, X, MessageSquare, Edit2 } from 'lucide-react';
 import { BudgetItem } from '../mockData';
 import { StatusBadge } from './StatusBadge';
 import { ClarificationBadge } from './ClarificationBadge';
+import { LimitStatusBadge } from './LimitStatusBadge';
 import { BudgetSectionSelect } from './BudgetSectionSelect';
 import { BudgetDivisionSelect } from './BudgetDivisionSelect';
 import { BudgetChapterSelect } from './BudgetChapterSelect';
@@ -132,6 +133,33 @@ export function BudgetItemRow({
         <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">
           {formatCurrency(item.amount)}
         </td>
+        {isDistributingLimit && (
+          <td className="px-6 py-4">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={limitAllocation}
+              onChange={(e) => onLimitChange && onLimitChange(item.id, parseFloat(e.target.value) || 0)}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 text-right"
+              placeholder="0.00"
+            />
+          </td>
+        )}
+        {!isDistributingLimit && (
+          <td className="px-6 py-4 text-sm text-right">
+            {item.limitAmount && item.limitAmount > 0 ? (
+              <div className="space-y-1">
+                <div className="font-semibold text-emerald-600">
+                  {formatCurrency(item.limitAmount)}
+                </div>
+                <LimitStatusBadge status={item.limitStatus} />
+              </div>
+            ) : (
+              <span className="text-gray-400">—</span>
+            )}
+          </td>
+        )}
         <td className="px-6 py-4 text-center">
           <StatusBadge status={item.status} />
         </td>
@@ -266,7 +294,7 @@ export function BudgetItemRow({
           )}
         </div>
       </td>
-      <td className="px-3 py-3 text-center" colSpan={3}>
+      <td className="px-3 py-3 text-center" colSpan={4}>
         <div className="flex items-center justify-center space-x-2">
           <button
             onClick={handleSave}

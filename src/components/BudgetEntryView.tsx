@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Send, MessageSquare, AlertCircle, CheckCircle, HelpCircle } from 'lucide-react';
+import { Plus, Send, MessageSquare, AlertCircle, CheckCircle, HelpCircle, X } from 'lucide-react';
 import { useApp, BudgetVersion } from '../AppContext';
 import { Breadcrumb } from './Breadcrumb';
 import { DiscussionThread } from './DiscussionThread';
@@ -21,6 +21,8 @@ export function BudgetEntryView() {
   const [hasReceivedLimit, setHasReceivedLimit] = useState(false);
   const [receivedLimitAmount, setReceivedLimitAmount] = useState<number | null>(null);
   const [totalRequestedAmount, setTotalRequestedAmount] = useState<number | null>(null);
+  const [isDistributingLimit, setIsDistributingLimit] = useState(false);
+  const [itemLimitAllocations, setItemLimitAllocations] = useState<Record<string, number>>({});
 
   if (!currentUser) return null;
 
@@ -133,6 +135,53 @@ export function BudgetEntryView() {
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 3000);
     }
+  };
+
+  const handleStartDistributingLimit = () => {
+    const initialAllocations: Record<string, number> = {};
+    userBudgetItems.forEach(item => {
+      initialAllocations[item.id] = 0;
+    });
+    setItemLimitAllocations(initialAllocations);
+    setIsDistributingLimit(true);
+  };
+
+  const handleSaveDistribution = async () => {
+    const totalAllocated = Object.values(itemLimitAllocations).reduce((sum, val) => sum + val, 0);
+
+    if (receivedLimitAmount !== null && totalAllocated > receivedLimitAmount) {
+      alert(`Łączna kwota przydzielona (${formatCurrency(totalAllocated)}) przekracza dostępny limit (${formatCurrency(receivedLimitAmount)})`);
+      return;
+    }
+
+    if (totalAllocated === 0) {
+      alert('Musisz przydzielić limity przynajmniej jednej pozycji');
+      return;
+    }
+
+    for (const [itemId, limitAmount] of Object.entries(itemLimitAllocations)) {
+      if (limitAmount > 0) {
+        await updateBudgetItem(itemId, {
+          limitStatus: 'limits_assigned',
+          limitAmount: limitAmount,
+        });
+      }
+    }
+
+    await supabase
+      .from('unit_limits')
+      .update({ status: 'distributed' })
+      .eq('unit_id', currentUser.unitId)
+      .eq('fiscal_year', new Date().getFullYear());
+
+    setIsDistributingLimit(false);
+    setItemLimitAllocations({});
+    alert('Limity zostały pomyślnie rozdzielone');
+  };
+
+  const handleCancelDistribution = () => {
+    setIsDistributingLimit(false);
+    setItemLimitAllocations({});
   };
 
   const formatCurrency = (amount: number) => {
@@ -253,6 +302,36 @@ export function BudgetEntryView() {
         </div>
       </div>
 
+      {hasReceivedLimit && receivedLimitAmount !== null && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start space-x-3">
+              <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-emerald-900">
+                  Otrzymano limit od jednostki nadrzędnej
+                </p>
+                <p className="text-sm text-emerald-700 mt-1">
+                  Dostępny limit: <span className="font-bold">{formatCurrency(receivedLimitAmount)}</span>
+                </p>
+                <p className="text-xs text-emerald-600 mt-2">
+                  Możesz teraz rozdzielić limit między pozycje budżetowe i przekazać je do jednostek podrzędnych.
+                </p>
+              </div>
+            </div>
+            {!isDistributingLimit && userBudgetItems.length > 0 && (
+              <button
+                onClick={handleStartDistributingLimit}
+                className="px-4 py-2 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700 transition-colors flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Rozdziel limit</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {itemsNeedingClarification.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex items-start space-x-3">
@@ -320,23 +399,49 @@ export function BudgetEntryView() {
           <h2 className="text-xl font-semibold text-gray-900">Pozycje budżetowe</h2>
           {!hasSubordinates && (
             <div className="flex items-center space-x-3">
-              {hasDraftItems && hasParent && (
-                <button
-                  onClick={handleSubmitForApproval}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>Prześlij do zatwierdzenia</span>
-                </button>
+              {isDistributingLimit ? (
+                <>
+                  <div className="text-sm text-gray-600">
+                    Łączna kwota przydzielona: <span className="font-bold text-emerald-600">
+                      {formatCurrency(Object.values(itemLimitAllocations).reduce((sum, val) => sum + val, 0))}
+                    </span> / {formatCurrency(receivedLimitAmount || 0)}
+                  </div>
+                  <button
+                    onClick={handleSaveDistribution}
+                    className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Zapisz rozdział limitów</span>
+                  </button>
+                  <button
+                    onClick={handleCancelDistribution}
+                    className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Anuluj</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  {hasDraftItems && hasParent && (
+                    <button
+                      onClick={handleSubmitForApproval}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Prześlij do zatwierdzenia</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={handleAddNew}
+                    disabled={isAddingNew}
+                    className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Dodaj pozycję</span>
+                  </button>
+                </>
               )}
-              <button
-                onClick={handleAddNew}
-                disabled={isAddingNew}
-                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Dodaj pozycję</span>
-              </button>
             </div>
           )}
         </div>
@@ -366,6 +471,15 @@ export function BudgetEntryView() {
                 <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Kwota
                 </th>
+                {isDistributingLimit ? (
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Przydziel limit
+                  </th>
+                ) : (
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Limit przyznany
+                  </th>
+                )}
                 <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Status
                 </th>
@@ -392,7 +506,7 @@ export function BudgetEntryView() {
               )}
               {userBudgetItems.length === 0 && !isAddingNew ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={12} className="px-6 py-12 text-center text-gray-500">
                     <AlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                     <p className="text-lg font-medium">Brak pozycji budżetowych</p>
                     <p className="text-sm mt-1">Kliknij "Dodaj pozycję" aby rozpocząć</p>
@@ -409,6 +523,11 @@ export function BudgetEntryView() {
                     onEdit={handleEditItem}
                     onDiscussion={setSelectedItemForDiscussion}
                     formatCurrency={formatCurrency}
+                    isDistributingLimit={isDistributingLimit}
+                    limitAllocation={itemLimitAllocations[item.id] || 0}
+                    onLimitChange={(itemId, value) => {
+                      setItemLimitAllocations(prev => ({ ...prev, [itemId]: value }));
+                    }}
                   />
                 ))
               )}
