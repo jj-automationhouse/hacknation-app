@@ -35,7 +35,7 @@ export function BudgetEntryView() {
     descendantUnits.some(u => u.id === item.unitId)
   );
   const allApprovedItems = allDescendantItems.filter(item => item.status === 'approved');
-  const shouldShowLimitAssignment = isTopLevel && allApprovedItems.length > 0;
+  const shouldShowLimitAssignment = hasSubordinates;
 
   const handleAddNew = () => {
     setIsAddingNew(true);
