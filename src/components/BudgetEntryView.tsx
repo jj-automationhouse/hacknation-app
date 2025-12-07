@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Send, MessageSquare, AlertCircle, CheckCircle, HelpCircle, X } from 'lucide-react';
+import { Plus, Send, MessageSquare, AlertCircle, CheckCircle, HelpCircle, X, FileText } from 'lucide-react';
 import { useApp, BudgetVersion } from '../AppContext';
 import { Breadcrumb } from './Breadcrumb';
 import { DiscussionThread } from './DiscussionThread';
@@ -10,6 +10,7 @@ import { ClarificationBadge } from './ClarificationBadge';
 import { LimitAssignmentView } from './LimitAssignmentView';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 import { supabase } from '../lib/supabase';
+import { generateBudgetDoc, transformBudgetItemsToRecords } from '../utils/generateBudgetDoc';
 
 export function BudgetEntryView() {
   const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions, createBudgetVersion } = useApp();
@@ -23,6 +24,7 @@ export function BudgetEntryView() {
   const [totalRequestedAmount, setTotalRequestedAmount] = useState<number | null>(null);
   const [isDistributingLimit, setIsDistributingLimit] = useState(false);
   const [itemLimitAllocations, setItemLimitAllocations] = useState<Record<string, number>>({});
+  const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
 
   if (!currentUser) return null;
 
@@ -182,6 +184,51 @@ export function BudgetEntryView() {
   const handleCancelDistribution = () => {
     setIsDistributingLimit(false);
     setItemLimitAllocations({});
+  };
+
+  const handleGenerateBudgetDoc = async () => {
+    if (!currentUser) return;
+
+    setIsGeneratingDoc(true);
+    try {
+      // Użyj pozycji budżetowych widocznych na ekranie (userBudgetItems)
+      if (userBudgetItems.length === 0) {
+        alert('Brak pozycji budżetowych do wygenerowania dokumentu.');
+        return;
+      }
+
+      // Debug: loguj dane wejściowe
+      console.log('Pozycje budżetowe do przetworzenia:', userBudgetItems.map(item => ({
+        id: item.id,
+        year: item.year,
+        amount: item.amount,
+        amountType: typeof item.amount,
+        budgetSection: item.budgetSection,
+        budgetDivision: item.budgetDivision,
+        budgetChapter: item.budgetChapter,
+        category: item.category,
+      })));
+
+      // Przekształć dane na format wymagany przez generator
+      const { records, years } = transformBudgetItemsToRecords(userBudgetItems);
+
+      if (records.length === 0) {
+        alert('Nie udało się przekształcić danych budżetowych. Sprawdź, czy pozycje mają poprawne kody budżetowe.');
+        return;
+      }
+
+      // Debug: loguj wynikowe rekordy
+      console.log('Rekordy do wygenerowania dokumentu:', records);
+      console.log('Lata w dokumencie:', years);
+
+      // Wygeneruj dokument
+      await generateBudgetDoc({ records, years });
+    } catch (error) {
+      console.error('Błąd podczas generowania dokumentu:', error);
+      alert('Wystąpił błąd podczas generowania dokumentu. Sprawdź konsolę przeglądarki.');
+    } finally {
+      setIsGeneratingDoc(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -432,6 +479,14 @@ export function BudgetEntryView() {
                       <span>Prześlij do zatwierdzenia</span>
                     </button>
                   )}
+                  <button
+                    onClick={handleGenerateBudgetDoc}
+                    disabled={isGeneratingDoc || userBudgetItems.length === 0}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>{isGeneratingDoc ? 'Generowanie...' : 'Generuj dokument budżetowy'}</span>
+                  </button>
                   <button
                     onClick={handleAddNew}
                     disabled={isAddingNew}
