@@ -113,6 +113,14 @@ export function LimitsView() {
   };
 
   const handleDistributeLimit = (limit: UnitLimit) => {
+    if (!currentUser) {
+      alert('Musisz być zalogowany aby rozdzielić limit');
+      return;
+    }
+    if (childUnits.length === 0) {
+      alert('Brak jednostek podległych do rozdzielenia limitu');
+      return;
+    }
     setSelectedLimit(limit);
     setIsDistributing(true);
     const initialDistributions: Record<string, number> = {};
@@ -279,7 +287,7 @@ export function LimitsView() {
                         </p>
                       )}
                     </div>
-                    {currentUser && limit.limitAssigned && limit.status !== 'distributed' && childUnits.length > 0 && (
+                    {limit.limitAssigned && limit.status !== 'distributed' && (
                       <button
                         onClick={() => handleDistributeLimit(limit)}
                         className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
