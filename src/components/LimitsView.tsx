@@ -86,13 +86,15 @@ export function LimitsView() {
     }
   };
 
-  const loadChildUnits = async () => {
-    if (!currentUser) {
+  const loadChildUnits = async (unitId?: string) => {
+    const parentUnitId = unitId || currentUser?.unitId;
+
+    if (!parentUnitId) {
       setChildUnits([]);
       return;
     }
 
-    const children = units.filter(u => u.parentId === currentUser.unitId);
+    const children = units.filter(u => u.parentId === parentUnitId);
 
     const childrenWithRequests = await Promise.all(
       children.map(async (child) => {
@@ -112,19 +114,19 @@ export function LimitsView() {
     setChildUnits(childrenWithRequests);
   };
 
-  const handleDistributeLimit = (limit: UnitLimit) => {
-    if (!currentUser) {
-      alert('Musisz być zalogowany aby rozdzielić limit');
-      return;
-    }
-    if (childUnits.length === 0) {
+  const handleDistributeLimit = async (limit: UnitLimit) => {
+    await loadChildUnits(limit.unitId);
+
+    const children = units.filter(u => u.parentId === limit.unitId);
+    if (children.length === 0) {
       alert('Brak jednostek podległych do rozdzielenia limitu');
       return;
     }
+
     setSelectedLimit(limit);
     setIsDistributing(true);
     const initialDistributions: Record<string, number> = {};
-    childUnits.forEach(child => {
+    children.forEach(child => {
       initialDistributions[child.id] = 0;
     });
     setDistributions(initialDistributions);
@@ -138,7 +140,7 @@ export function LimitsView() {
   };
 
   const handleSaveDistribution = async () => {
-    if (!selectedLimit || !currentUser) return;
+    if (!selectedLimit) return;
 
     const totalDistributed = Object.values(distributions).reduce((sum, val) => sum + val, 0);
     if (selectedLimit.limitAssigned && totalDistributed > selectedLimit.limitAssigned) {
@@ -153,7 +155,7 @@ export function LimitsView() {
           const child = childUnits.find(c => c.id === childUnitId);
           return {
             unit_id: childUnitId,
-            assigned_by_unit_id: currentUser.unitId,
+            assigned_by_unit_id: selectedLimit.unitId,
             total_requested: child?.totalRequested || 0,
             limit_assigned: amount,
             status: 'assigned',
