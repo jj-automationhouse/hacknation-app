@@ -11,6 +11,7 @@ import { LimitAssignmentView } from './LimitAssignmentView';
 import { getUnitHierarchy, getAllDescendantUnits, BudgetItem } from '../mockData';
 import { supabase } from '../lib/supabase';
 import { generateBudgetDoc, transformBudgetItemsToRecords } from '../utils/generateBudgetDoc';
+import { generateTrezorXml } from '../utils/generateTrezorMock';
 
 export function BudgetEntryView() {
   const { currentUser, units, budgetItems, addBudgetItem, updateBudgetItem, submitBudget, getBudgetVersions, createBudgetVersion } = useApp();
@@ -25,6 +26,8 @@ export function BudgetEntryView() {
   const [isDistributingLimit, setIsDistributingLimit] = useState(false);
   const [itemLimitAllocations, setItemLimitAllocations] = useState<Record<string, number>>({});
   const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
+  const [showTrezorSuccess, setShowTrezorSuccess] = useState(false);
+  const [trezorXmlContent, setTrezorXmlContent] = useState<string | null>(null);
 
   if (!currentUser) return null;
 
@@ -231,6 +234,19 @@ export function BudgetEntryView() {
     }
   };
 
+  const handleSendToTrezor = () => {
+    if (userBudgetItems.length === 0) {
+      alert('Brak pozycji budżetowych do wysłania.');
+      return;
+    }
+
+    const xml = generateTrezorXml(userBudgetItems);
+    setTrezorXmlContent(xml);
+    setShowTrezorSuccess(true);
+    
+    // Auto-hide success message partial logic if needed, but keeping it visible for XML display as per requirement
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pl-PL', {
       style: 'currency',
@@ -270,6 +286,37 @@ export function BudgetEntryView() {
               Aby zobaczyć przesłane pozycje: przełącz się na użytkownika z jednostki nadrzędnej i otwórz zakładkę "Zatwierdzanie".
             </p>
           </div>
+        </div>
+      )}
+
+      {showTrezorSuccess && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-emerald-900">Twoje pliki zostały wysłane do TREZOR</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => {
+                setShowTrezorSuccess(false);
+                setTrezorXmlContent(null);
+              }}
+              className="text-emerald-700 hover:text-emerald-900 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          {trezorXmlContent && (
+            <div className="mt-4 bg-gray-900 rounded-md p-4 overflow-x-auto">
+              <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Podgląd wygenerowanego pliku XML (Tylko Demo)</p>
+              <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">
+                {trezorXmlContent}
+              </pre>
+            </div>
+          )}
         </div>
       )}
 
@@ -486,6 +533,14 @@ export function BudgetEntryView() {
                   >
                     <FileText className="w-4 h-4" />
                     <span>{isGeneratingDoc ? 'Generowanie...' : 'Generuj dokument budżetowy'}</span>
+                  </button>
+                  <button
+                    onClick={handleSendToTrezor}
+                    disabled={userBudgetItems.length === 0}
+                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Wyślij do TREZOR</span>
                   </button>
                   <button
                     onClick={handleAddNew}
