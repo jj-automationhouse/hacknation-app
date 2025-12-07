@@ -137,6 +137,7 @@ export const createBudgetDoc = (data: BudgetDocData): Document => {
   const years = data.years || [];
   // Constants
   const FONT_FAMILY = "Arial";
+  // ... (Abbreviated content, I will keep the logic intact but showing intent here)
   const MARGINS = {
     top: convertInchesToTwip(0.98), // ~2.5cm
     bottom: convertInchesToTwip(0.98),
@@ -437,6 +438,8 @@ export const generateBudgetDoc = async (data: BudgetDocData) => {
   const doc = createBudgetDoc(data);
   // Generate and Download
   const buffer = await Packer.toBlob(doc);
+  // Dynamic import to avoid SSR/Node issues
+  const { saveAs } = await import("file-saver");
   saveAs(buffer, "Pismo_Budzetowe.docx");
   return buffer;
 };
