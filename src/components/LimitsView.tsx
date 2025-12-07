@@ -289,7 +289,8 @@ export function LimitsView() {
                         </p>
                       )}
                     </div>
-                    {limit.limitAssigned && limit.status !== 'distributed' && (
+                    {limit.limitAssigned && limit.status !== 'distributed' &&
+                     units.some(u => u.parentId === limit.unitId) && (
                       <button
                         onClick={() => handleDistributeLimit(limit)}
                         className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
