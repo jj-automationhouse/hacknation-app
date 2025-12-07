@@ -193,3 +193,30 @@ export function getParentUnit(unitId: string, units: OrganizationalUnit[]): Orga
   const unit = units.find(u => u.id === unitId);
   return unit?.parentId ? units.find(u => u.id === unit.parentId) : undefined;
 }
+
+export function findDirectChildUnit(
+  itemUnitId: string,
+  approvingUnitId: string,
+  units: OrganizationalUnit[]
+): OrganizationalUnit | undefined {
+  let currentUnit = units.find(u => u.id === itemUnitId);
+
+  if (!currentUnit) return undefined;
+
+  if (currentUnit.parentId === approvingUnitId) {
+    return currentUnit;
+  }
+
+  while (currentUnit && currentUnit.parentId) {
+    const parentUnit = units.find(u => u.id === currentUnit!.parentId);
+    if (!parentUnit) return undefined;
+
+    if (parentUnit.parentId === approvingUnitId) {
+      return parentUnit;
+    }
+
+    currentUnit = parentUnit;
+  }
+
+  return undefined;
+}

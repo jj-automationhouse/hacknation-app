@@ -7,6 +7,7 @@ import {
   OrganizationalUnit,
   getParentUnit,
   getAllDescendantUnits,
+  findDirectChildUnit,
 } from './mockData';
 import { supabase } from './lib/supabase';
 
@@ -424,10 +425,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     if (limitAssigned !== null) {
+      const targetUnit = findDirectChildUnit(unitId, currentUser.unitId, units);
+
+      if (!targetUnit) {
+        console.error('Could not find direct child unit for limit assignment');
+        return;
+      }
+
       const { error: limitError } = await supabase
         .from('unit_limits')
         .upsert({
-          unit_id: unitId,
+          unit_id: targetUnit.id,
           assigned_by_unit_id: currentUser.unitId,
           total_requested: totalRequested,
           limit_assigned: limitAssigned,
