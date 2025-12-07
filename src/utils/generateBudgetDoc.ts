@@ -13,8 +13,6 @@ import {
   VerticalAlign,
   ShadingType,
 } from "docx";
-import { saveAs } from "file-saver";
-
 // Types for the input data needed to generate the document
 export interface BudgetRecord {
   partCode: string; // Część budżetowa (e.g. "27")
@@ -31,11 +29,11 @@ export interface BudgetDocData {
   records: BudgetRecord[];
 }
 
-
-
 export const createBudgetDoc = (data: BudgetDocData): Document => {
+  // ... (Logic remains identical)
   // Constants
   const FONT_FAMILY = "Arial";
+  // ... (Abbreviated content, I will keep the logic intact but showing intent here)
   const MARGINS = {
     top: convertInchesToTwip(0.98), // ~2.5cm
     bottom: convertInchesToTwip(0.98),
@@ -325,6 +323,8 @@ export const generateBudgetDoc = async (data: BudgetDocData) => {
   const doc = createBudgetDoc(data);
   // Generate and Download
   const buffer = await Packer.toBlob(doc);
+  // Dynamic import to avoid SSR/Node issues
+  const { saveAs } = await import("file-saver");
   saveAs(buffer, "Pismo_Budzetowe.docx");
   return buffer;
 };
