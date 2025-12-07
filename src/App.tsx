@@ -17,7 +17,7 @@ function AppContent() {
 
   const canAccessApproval = currentUser?.role === 'approver' || currentUser?.role === 'admin';
   const canAccessAdmin = currentUser?.role === 'admin';
-  const canAccessLimits = currentUser?.role === 'approver' || currentUser?.role === 'admin';
+  const canAccessLimits = true;
 
   useEffect(() => {
     if (!currentUser) return;
@@ -25,10 +25,8 @@ function AppContent() {
       setCurrentView('budget');
     } else if (currentView === 'admin' && !canAccessAdmin) {
       setCurrentView('budget');
-    } else if (currentView === 'limits' && !canAccessLimits) {
-      setCurrentView('budget');
     }
-  }, [currentUser, canAccessApproval, canAccessAdmin, canAccessLimits, currentView]);
+  }, [currentUser, canAccessApproval, canAccessAdmin, currentView]);
 
   if (loading) {
     return (
@@ -184,7 +182,7 @@ function AppContent() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full">
           {currentView === 'budget' && <BudgetEntryView />}
           {currentView === 'approval' && canAccessApproval && <ApprovalView />}
-          {currentView === 'limits' && canAccessLimits && <LimitsView />}
+          {currentView === 'limits' && <LimitsView />}
           {currentView === 'admin' && canAccessAdmin && <AdminView />}
         </main>
       </div>

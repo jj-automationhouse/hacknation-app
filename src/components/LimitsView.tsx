@@ -8,6 +8,7 @@ interface UnitLimit {
   unitId: string;
   unitName?: string;
   assignedByUnitId: string;
+  assignedByUnitName?: string;
   totalRequested: number;
   limitAssigned: number | null;
   status: 'pending' | 'assigned' | 'distributed';
@@ -38,22 +39,24 @@ export function LimitsView() {
   };
 
   useEffect(() => {
-    if (currentUser && units.length > 0) {
+    if (units.length > 0) {
       loadReceivedLimits();
       loadChildUnits();
     }
   }, [currentUser, units, budgetItems]);
 
   const loadReceivedLimits = async () => {
-    if (!currentUser) return;
-
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('unit_limits')
-        .select('*')
-        .eq('unit_id', currentUser.unitId)
-        .order('fiscal_year', { ascending: false });
+        .select('*');
+
+      if (currentUser) {
+        query = query.eq('unit_id', currentUser.unitId);
+      }
+
+      const { data, error } = await query.order('fiscal_year', { ascending: false });
 
       if (error) {
         console.error('Error loading received limits:', error);
@@ -63,11 +66,13 @@ export function LimitsView() {
       if (data) {
         const limitsWithNames = data.map(l => {
           const assignedByUnit = units.find(u => u.id === l.assigned_by_unit_id);
+          const receivingUnit = units.find(u => u.id === l.unit_id);
           return {
             id: l.id,
             unitId: l.unit_id,
-            unitName: assignedByUnit?.name,
+            unitName: receivingUnit?.name,
             assignedByUnitId: l.assigned_by_unit_id,
+            assignedByUnitName: assignedByUnit?.name,
             totalRequested: Number(l.total_requested),
             limitAssigned: l.limit_assigned ? Number(l.limit_assigned) : null,
             status: l.status as 'pending' | 'assigned' | 'distributed',
@@ -82,7 +87,10 @@ export function LimitsView() {
   };
 
   const loadChildUnits = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setChildUnits([]);
+      return;
+    }
 
     const children = units.filter(u => u.parentId === currentUser.unitId);
 
@@ -231,6 +239,11 @@ export function LimitsView() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
+                        {!currentUser && limit.unitName && (
+                          <span className="text-sm font-semibold text-gray-900">
+                            {limit.unitName}
+                          </span>
+                        )}
                         <span className="text-sm font-medium text-gray-700">
                           Rok budżetowy: {limit.fiscalYear}
                         </span>
@@ -260,13 +273,13 @@ export function LimitsView() {
                           </p>
                         </div>
                       </div>
-                      {limit.unitName && (
+                      {limit.assignedByUnitName && (
                         <p className="text-xs text-gray-500 mt-2">
-                          Przyznany przez: {limit.unitName}
+                          Przyznany przez: {limit.assignedByUnitName}
                         </p>
                       )}
                     </div>
-                    {limit.limitAssigned && limit.status !== 'distributed' && childUnits.length > 0 && (
+                    {currentUser && limit.limitAssigned && limit.status !== 'distributed' && childUnits.length > 0 && (
                       <button
                         onClick={() => handleDistributeLimit(limit)}
                         className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
